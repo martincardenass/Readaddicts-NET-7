@@ -18,13 +18,45 @@ namespace PostAPI.Controller
 
         [HttpGet("allposts")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
-        public async Task<IEnumerable<PostView>> GetPosts() => await _postService.GetPosts();
+        [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetPosts(int page, int pageSize)
+        {
+            var posts = await _postService.GetPosts(page, pageSize);
+
+            if (!posts.Any())
+                return NotFound("Seems like you have reached the end");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            return Ok(posts);
+        }
+
+
+        [HttpGet("{id}")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<Post>))] // MIGHT CHANGE THIS FOR POST VIEW 
+        [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetPostById(int id)
+        {
+            var post = await _postService.GetPostById(id);
+
+            bool exists = await _postService.IdExists(id);
+            if(!exists) return NotFound("The post does not exist");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            return Ok(post);
+        }
 
         [HttpPost]
         [Authorize(Policy = "UserAllowed")]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(400)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(401)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(500)]
         public async Task<IActionResult> CreatePost(Post post)
         {
             var validator = new PostValidator();
@@ -57,9 +89,10 @@ namespace PostAPI.Controller
 
         [HttpDelete("delete/{id}")]
         [Authorize(Policy = "UserAllowed")]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(500)]
+        [ProducesResponseType(400)]
         public async Task<IActionResult> DeletePostAsync(int id)
         {
             bool exists = await _postService.IdExists(id);
@@ -67,7 +100,7 @@ namespace PostAPI.Controller
             if(!exists)
                 return NotFound("The post does not exist or has already been deleted");
 
-            var post = await _postService.GetById(id);
+            var post = await _postService.GetPostById(id);
             bool deleted = await _postService.DeletePost(post);
 
             if(!deleted)
@@ -84,9 +117,10 @@ namespace PostAPI.Controller
 
         [HttpPatch("update/{id}")]
         [Authorize(Policy = "UserAllowed")]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(500)]
         public async Task<IActionResult> UpdatePostAsync(int id, [FromBody] Post post)
         {
             bool exists = await _postService.IdExists(id);

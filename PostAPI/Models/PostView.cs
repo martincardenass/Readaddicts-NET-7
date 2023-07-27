@@ -9,5 +9,8 @@ namespace PostAPI.Models
         public string Author { get; set; }
         public DateTime Created { get; set; }
         public string Content { get; set; }
+        public string? Profile_Picture { get; set; }
+        public string? First_Name { get; set; }
+        public string? Last_Name { get; set; }
     }
 }

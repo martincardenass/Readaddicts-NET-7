@@ -18,18 +18,22 @@ namespace PostAPI.Controller
 
         [HttpGet("{postId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
+        [ProducesResponseType(400)]
         public async Task<IActionResult> GetCommentsByPostId(int postId)
         {
             var comments = await _commentService.GetCommentsByPostId(postId);
+
+            if (!ModelState.IsValid)
+                return BadRequest();
 
             return Ok(comments);
         }
 
         [HttpPost("post/{commentId}")]
         // * No authorize because anyone can post comments
-        [ProducesResponseType(204)]
+        [ProducesResponseType(200)]
         [ProducesResponseType(400)]
-        [ProducesResponseType(401)]
+        [ProducesResponseType(500)]
         public async Task<IActionResult> CreateComment(int commentId, Comment comment)
         {
             var validator = new CommentValidator();
@@ -63,8 +67,9 @@ namespace PostAPI.Controller
         [HttpPatch("update/{commentId}")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
+        [ProducesResponseType(500)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(200)]
         public async Task<IActionResult> UpdateComment(int commentId, [FromBody] Comment comment)
         {
             bool exists = await _commentService.CommentIdExists(commentId);
@@ -102,9 +107,10 @@ namespace PostAPI.Controller
 
         [HttpDelete("delete/{commentId}")]
         [Authorize(Policy = "UserAllowed")]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(500)]
+        [ProducesResponseType(200)]
         public async Task<IActionResult> DeleteComment(int commentId)
         {
             bool exists = await _commentService.CommentIdExists(commentId);

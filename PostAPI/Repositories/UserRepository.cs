@@ -18,7 +18,6 @@ namespace PostAPI.Repositories
         private readonly AppDbContext _context;
         private readonly IHttpContextAccessor _http;
         private readonly Cloudinary _cloudinary;
-        private readonly IToken _tokenService;
         private readonly JwtOptions _options;
 
         public UserRepository(AppDbContext context, IHttpContextAccessor http, IOptions<JwtOptions> options, Cloudinary cloudinary)

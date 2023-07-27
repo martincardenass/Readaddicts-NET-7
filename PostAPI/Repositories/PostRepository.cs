@@ -22,11 +22,6 @@ namespace PostAPI.Repositories
             return await _context.Posts.AnyAsync(i => i.Post_Id == id);
         }
 
-        public async Task<List<PostView>> GetPosts()
-        {
-            return await _context.PostsView.OrderBy(p => p.Post_Id).ToListAsync();
-        }
-
         public async Task<bool> CreatePost(Post post)
         {
             int userId = await _tokenService.ExtractIdFromToken();
@@ -95,9 +90,34 @@ namespace PostAPI.Repositories
             return idFromToken == idFromPost;
         }
 
-        public async Task<Post> GetById(int id)
+        public async Task<Post> GetPostById(int id)
         {
             return await _context.Posts.FirstOrDefaultAsync(p => p.Post_Id == id);
+        }
+
+        public async Task<List<PostView>> GetPosts(int page, int pageSize)
+        {
+            // * Some pagination logic and left join of tables to get the profile picture and first and last name per post
+            int postsToSkip = (page - 1) * pageSize;
+            var posts = await _context.PostsView.GroupJoin(
+                _context.Users,
+                post => post.Author,
+                user => user.Username,
+                (posts, users) => new { posts, users })
+                .SelectMany(
+                x => x.users.DefaultIfEmpty(),
+                (post, user) => new PostView
+                {
+                    Post_Id = post.posts.Post_Id,
+                    Author = post.posts.Author,
+                    First_Name = user.First_Name,
+                    Last_Name = user.Last_Name,
+                    Created = post.posts.Created,
+                    Content = post.posts.Content,
+                    Profile_Picture = user != null ? user.Profile_Picture : "No picture",
+                }
+                ).Skip(postsToSkip).Take(pageSize).ToListAsync();
+            return posts;
         }
     }
 }

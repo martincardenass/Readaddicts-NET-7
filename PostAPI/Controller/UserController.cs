@@ -26,7 +26,79 @@ namespace PostAPI.Controller
             return Ok(users);
         }
 
+        [HttpGet("id/{userId}")]
+        [ProducesResponseType(200, Type = typeof(User))]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetUserById(int userId)
+        {
+            var user = await _userService.GetUserById(userId);
+            bool exists = await _userService.UserIdExists(userId);
+
+            if (!exists)
+                return NotFound("User does not exist");
+
+            var userDto = new User
+            {
+                User_Id = user.User_Id,
+                Username = user.Username,
+                First_Name = user.First_Name,
+                Last_Name = user.Last_Name,
+                Created = user.Created,
+                Email = user.Email,
+                Role = user.Role,
+                Gender = user.Gender,
+                Birthday = user.Birthday,
+                Profile_Picture = user.Profile_Picture,
+                Bio = user.Bio,
+                Status = user.Status,
+                Last_Login = user.Last_Login
+            };
+
+
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            return Ok(userDto);
+        }
+
+        [HttpGet("username/{username}")]
+        [ProducesResponseType(200, Type = typeof(User))]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetUserByUsername(string username)
+        {
+            var user = await _userService.GetUser(username);
+
+            bool exists = await _userService.UserExists(username);
+
+            if (!exists)
+                return NotFound($"The user {username} does not exist");
+
+            var userDto = new User
+            {
+                User_Id = user.User_Id,
+                Username = user.Username,
+                First_Name = user.First_Name,
+                Last_Name = user.Last_Name,
+                Created = user.Created,
+                Gender = user.Gender,
+                Profile_Picture = user.Profile_Picture,
+                Bio = user.Bio,
+                Status = user.Status,
+                Last_Login = user.Last_Login
+            };
+
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            return Ok(userDto);
+        }
+
         [HttpPost("signup")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(500)]
         public async Task<IActionResult> CreateUser(User user)
         {
             var validator = new UserValidator(_userService);
@@ -58,12 +130,14 @@ namespace PostAPI.Controller
         }
 
         [HttpPost("login")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
         public async Task<IActionResult> Login([FromBody] UserDto user)
         {
             bool exists = await _userService.UserExists(user.Username);
 
             if (!exists)
-                return BadRequest($"{user.Username} does not exist");
+                return BadRequest("This username does not exist");
 
             var hashedPassword = await _userService.GetHashedPassword(user.Username);
 
@@ -82,8 +156,8 @@ namespace PostAPI.Controller
         [HttpPatch("update")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(404)]
+        [ProducesResponseType(500)]
+        [ProducesResponseType(200)]
         public async Task<IActionResult> UpdateUser([FromBody] UserUpdateDto user)
         {
             var validator = new UserUpdateDtoValidator(_userService);
@@ -115,8 +189,9 @@ namespace PostAPI.Controller
         }
         [HttpDelete("delete/{id}")]
         [Authorize(Policy = "UserAllowed")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(500)]
         [ProducesResponseType(400)]
-        [ProducesResponseType(204)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> DeleteUser(int id)
         {
