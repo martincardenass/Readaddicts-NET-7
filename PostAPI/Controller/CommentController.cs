@@ -29,12 +29,12 @@ namespace PostAPI.Controller
             return Ok(comments);
         }
 
-        [HttpPost("post/{commentId}")]
+        [HttpPost("post/{postId}")]
         // * No authorize because anyone can post comments
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> CreateComment(int commentId, Comment comment)
+        public async Task<IActionResult> CreateComment(int postId, int parentCommentId, Comment comment)
         {
             var validator = new CommentValidator();
             var validationResult = await validator.ValidateAsync(comment);
@@ -50,7 +50,7 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             }
 
-            bool created = await _commentService.CreateComment(commentId, comment);
+            bool created = await _commentService.CreateComment(postId, parentCommentId, comment);
 
             if (!created)
             {

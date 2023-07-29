@@ -90,9 +90,28 @@ namespace PostAPI.Repositories
             return idFromToken == idFromPost;
         }
 
-        public async Task<Post> GetPostById(int id)
+        public async Task<PostView> GetPostViewById(int id)
         {
-            return await _context.Posts.FirstOrDefaultAsync(p => p.Post_Id == id);
+            var post = await _context.PostsView.GroupJoin(
+                _context.Users,
+                post => post.Author,
+                user => user.Username,
+                (posts, users) => new { posts, users })
+                .SelectMany(
+                x => x.users.DefaultIfEmpty(),
+                (post, user) => new PostView
+                {
+                    Post_Id = post.posts.Post_Id,
+                    Author = post.posts.Author,
+                    First_Name = user.First_Name,
+                    Last_Name = user.Last_Name,
+                    Created = post.posts.Created,
+                    Content = post.posts.Content,
+                    Profile_Picture = user != null ? user.Profile_Picture : "No picture",
+                }
+                ).FirstOrDefaultAsync(p => p.Post_Id == id);
+
+            return post;
         }
 
         public async Task<List<PostView>> GetPosts(int page, int pageSize)
@@ -118,6 +137,11 @@ namespace PostAPI.Repositories
                 }
                 ).Skip(postsToSkip).Take(pageSize).ToListAsync();
             return posts;
+        }
+
+        public async Task<Post> GetPostById(int id)
+        {
+            return await _context.Posts.FirstOrDefaultAsync(p => p.Post_Id == id);
         }
     }
 }

@@ -35,15 +35,15 @@ namespace PostAPI.Controller
 
 
         [HttpGet("{id}")]
-        [ProducesResponseType(200, Type = typeof(IEnumerable<Post>))] // MIGHT CHANGE THIS FOR POST VIEW 
+        [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
-        public async Task<IActionResult> GetPostById(int id)
+        public async Task<IActionResult> GetPostViewById(int id)
         {
-            var post = await _postService.GetPostById(id);
+            var post = await _postService.GetPostViewById(id);
 
             bool exists = await _postService.IdExists(id);
-            if(!exists) return NotFound("The post does not exist");
+            if(!exists) return NotFound($"The post with ID {id} does not exist");
 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);

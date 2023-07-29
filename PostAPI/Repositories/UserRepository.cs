@@ -37,13 +37,13 @@ namespace PostAPI.Repositories
             return role == "admin";
         }
 
-        public async Task<bool> CreateUser(User user)
+        public async Task<bool> CreateUser(User user, IFormFile file)
         {
             string salt = BCrypt.Net.BCrypt.GenerateSalt();
             string hashedPw = BCrypt.Net.BCrypt.HashPassword(user.Password, salt);
 
             // * Get the value of the Profile_Picture field from the payload. Upload to Cloudinary...
-            string? profilePictureUrl = await UploadProfilePicture(user.Profile_Picture);
+            string? profilePictureUrl = await UploadProfilePicture(file); // * This should add the string URL
 
             var newUser = new User()
             {
@@ -156,21 +156,19 @@ namespace PostAPI.Repositories
             return tokenHandler.WriteToken(token);
         }
 
-        public async Task<bool> UpdateUser(UserUpdateDto user)
+        public async Task<bool> UpdateUser(UserUpdateDto user, IFormFile file)
         {
             var token = await GetToken();
             var (id, _) = await DecodeHS512(token);
             string? hashedPw = null;
-            string? profilePictureUrl = null;
 
             if (!string.IsNullOrEmpty(user.Password))
             {
                 string salt = BCrypt.Net.BCrypt.GenerateSalt();
                 hashedPw = BCrypt.Net.BCrypt.HashPassword(user.Password, salt);
             }
-
-            if(!string.IsNullOrEmpty(user.Profile_Picture))
-                profilePictureUrl = await UploadProfilePicture(user.Profile_Picture);
+            
+            string? profilePictureUrl = await UploadProfilePicture(file);
 
             var existingUser = _context.Users.Find(id);
 
@@ -196,23 +194,33 @@ namespace PostAPI.Repositories
             }
         }
 
-        public async Task<string?> UploadProfilePicture(string path)
+        public async Task<string?> UploadProfilePicture(IFormFile file)
         {
-            if(string.IsNullOrEmpty(path)) return null; // * Profile picture its opional.
-
-            var uploadParams = new ImageUploadParams()
+            if(file != null && file.Length > 0)
             {
-                File = new FileDescription(@path),
-                Transformation = new Transformation().Width(300).Height(300), // * Image resize to 300x300 before uploading
-                UseFilename = true,
-                UniqueFilename = true,
-                Overwrite = true
-            };
+                // * Dispose the resources being used here
+                await using var stream = file.OpenReadStream();
 
-            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-            var url = uploadResult.SecureUrl;
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(file.FileName, stream),
+                    Transformation = new Transformation().Width(300).Height(300).Crop("fill"),
+                    UseFilename = true,
+                    UniqueFilename = true,
+                    Overwrite = true
+                };
 
-            return url.OriginalString; // * Return the Cloudinary URL
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+                if(uploadResult.Error  != null)
+                {
+                    // * Return an error message if an exception happens
+                    throw new Exception(uploadResult.Error.Message);
+                }
+
+                return uploadResult.SecureUrl.ToString();
+            }
+            return null; // * If no file is provided
         }
 
         public async Task<bool> UserExists(string username)

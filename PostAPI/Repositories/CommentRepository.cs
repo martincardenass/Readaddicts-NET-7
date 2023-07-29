@@ -34,7 +34,7 @@ namespace PostAPI.Repositories
             return idFromToken == idFromComment;
         }
 
-        public async Task<bool> CreateComment(int postId, Comment comment)
+        public async Task<bool> CreateComment(int postId, int parentCommentId, Comment comment)
         {
             // * If no token string is provided: comment will be anonymous
             string token = _http.HttpContext.Request.Headers.Authorization.ToString();
@@ -46,11 +46,12 @@ namespace PostAPI.Repositories
             var newComment = new Comment()
             {
                 User_Id = userId, // * If UserId field has value
+                Parent_Comment_Id = parentCommentId == 0 ? null : parentCommentId,
                 Anonymous = userId == null,
                 Post_Id = postId,
                 Content = comment.Content,
                 Created = DateTime.UtcNow,
-                Modified = DateTime.UtcNow
+                // Modified = null // Not necessary on comment creation
             };
 
             _context.Add(newComment);
@@ -94,11 +95,13 @@ namespace PostAPI.Repositories
                     Comment_Id = comment.comment.Comment_Id,
                     User_Id = comment.comment.User_Id,
                     Post_Id = comment.comment.Post_Id,
+                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
                     Content = comment.comment.Content,
                     Created = comment.comment.Created,
                     Modified = comment.comment.Modified,
                     Anonymous = comment.comment.Anonymous,
-                    Author = user != null ? user.Username : "Anonymous"
+                    Author = user != null ? user.Username : "Anonymous",
+                    Profile_Picture = user.Profile_Picture
                 }
                 )
                 .Where(c => c.Post_Id == postId)

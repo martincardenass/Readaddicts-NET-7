@@ -12,6 +12,8 @@ namespace PostAPI.Models
         public int? User_Id { get; set; } // Comments can be anonymus. Thats why its nullable ?
         [ForeignKey("Posts")]
         public int Post_Id { get; set; }
+        [ForeignKey("Comments")]
+        public int? Parent_Comment_Id { get; set; }
         public string Content { get; set; }
         public DateTime Created { get; set; }
         public DateTime Modified { get; set; }

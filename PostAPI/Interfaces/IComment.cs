@@ -8,7 +8,7 @@ namespace PostAPI.Interfaces
         Task<Comment> GetCommentById(int commentId);
         Task<List<CommentView>> GetCommentsByPostId(int postId); // * This isnt actually the view
         Task<bool> ComparedTokenCommentId(int commentId);
-        Task<bool> CreateComment(int postId, Comment comment);
+        Task<bool> CreateComment(int postId, int parentCommentId, Comment comment);
         Task<bool> UpdateComment(int commentId, Comment comment);
         Task<bool> DeleteComment(Comment comment);
     }

@@ -99,7 +99,7 @@ namespace PostAPI.Controller
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> CreateUser(User user)
+        public async Task<IActionResult> CreateUser([FromForm] User user, [FromForm] IFormFile? imageFile)
         {
             var validator = new UserValidator(_userService);
             var validationResult = await validator.ValidateAsync(user);
@@ -115,7 +115,7 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            bool created = await _userService.CreateUser(user);
+            bool created = await _userService.CreateUser(user, imageFile);
 
             if (!created)
             {
@@ -158,7 +158,7 @@ namespace PostAPI.Controller
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
         [ProducesResponseType(200)]
-        public async Task<IActionResult> UpdateUser([FromBody] UserUpdateDto user)
+        public async Task<IActionResult> UpdateUser([FromForm] UserUpdateDto user, [FromForm] IFormFile? imageFile)
         {
             var validator = new UserUpdateDtoValidator(_userService);
             var validatorResult = await validator.ValidateAsync(user);
@@ -177,7 +177,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var updated = await _userService.UpdateUser(user);
+            var updated = await _userService.UpdateUser(user, imageFile);
 
             if (!updated)
             {
@@ -187,6 +187,7 @@ namespace PostAPI.Controller
 
             return Ok("User updated");
         }
+
         [HttpDelete("delete/{id}")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
