@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PostAPI.Models
 {
@@ -6,6 +7,8 @@ namespace PostAPI.Models
     {
         [Key]
         public int Post_Id { get; set; }
+        [ForeignKey("Users")]
+        public int User_Id { get; set; }
         public string Author { get; set; }
         public DateTime Created { get; set; }
         public string Content { get; set; }

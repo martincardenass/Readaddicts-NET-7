@@ -78,14 +78,18 @@ namespace PostAPI.Repositories
             return (id, role);
         }
 
-        public async Task<bool> DeleteUser(User user)
+        public async Task<bool> DeleteUser(int userId)
         {
             // Injecting tokenService causes circular dependency issue
             var token = await GetToken();
             if (token == null) return false;
 
             var (id, _) = await DecodeHS512(token);
-            if(id == user.User_Id)
+
+            var user = await GetUserById(userId);
+            if (user == null) return false;
+
+            if(id == userId)
             {
                 _context.Users.Remove(user);
                 return await _context.SaveChangesAsync() > 0;
@@ -120,7 +124,16 @@ namespace PostAPI.Repositories
 
         public async Task<User> GetUserById(int userId)
         {
-            return await _context.Users.Where(u => u.User_Id == userId).FirstOrDefaultAsync();
+            // * This can only be invoked by the logged in user since it will contain sensitive information
+            var token = await GetToken();
+            if (token == null) return null;
+
+            var (id, _) = await DecodeHS512(token);
+            if (id == userId)
+                return await _context.Users.Where(u => u.User_Id == userId).FirstOrDefaultAsync();
+
+            else
+                return null; // * Will return 204
         }
 
         public async Task<List<User>> GetUsers()
@@ -156,7 +169,7 @@ namespace PostAPI.Repositories
             return tokenHandler.WriteToken(token);
         }
 
-        public async Task<bool> UpdateUser(UserUpdateDto user, IFormFile file)
+        public async Task<bool> UpdateUser(UserUpdateDto user, IFormFile? file)
         {
             var token = await GetToken();
             var (id, _) = await DecodeHS512(token);
@@ -184,6 +197,20 @@ namespace PostAPI.Repositories
                 existingUser.Profile_Picture = profilePictureUrl ?? existingUser.Profile_Picture;
                 existingUser.Bio = user.Bio ?? existingUser.Bio;
                 existingUser.Status = user.Status ?? existingUser.Status;
+
+                bool changes =
+                    existingUser.First_Name == user.First_Name ||
+                    existingUser.Last_Name == user.Last_Name ||
+                    existingUser.Email == user.Email ||
+                    existingUser.Password == hashedPw ||
+                    existingUser.Gender == user.Gender ||
+                    existingUser.Birthday == user.Birthday ||
+                    existingUser.Profile_Picture == profilePictureUrl ||
+                    existingUser.Bio == user.Bio;
+                //existingUser.Status == user.Status;
+
+                if (!changes)
+                    return false;
 
                 _context.Update(existingUser);
                 return await _context.SaveChangesAsync() > 0;

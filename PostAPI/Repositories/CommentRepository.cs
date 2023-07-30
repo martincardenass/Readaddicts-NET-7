@@ -108,6 +108,33 @@ namespace PostAPI.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<CommentView>> GetCommentsByUserId(int userId)
+        {
+            return await _context.Comments.GroupJoin( // * This join can also be done with a view
+                _context.Users,
+                comment => comment.User_Id,
+                user => user.User_Id,
+                (comment, users) => new { comment, users })
+                .SelectMany(
+                x => x.users.DefaultIfEmpty(),
+                (comment, user) => new CommentView
+                {
+                    Comment_Id = comment.comment.Comment_Id,
+                    User_Id = comment.comment.User_Id,
+                    Post_Id = comment.comment.Post_Id,
+                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
+                    Content = comment.comment.Content,
+                    Created = comment.comment.Created,
+                    Modified = comment.comment.Modified,
+                    Anonymous = comment.comment.Anonymous,
+                    Author = user != null ? user.Username : "Anonymous",
+                    Profile_Picture = user.Profile_Picture
+                }
+                )
+                .Where(c => c.User_Id == userId)
+                .ToListAsync();
+        }
+
         public async Task<bool> UpdateComment(int commentId, Comment comment)
         {
             var comparasion = await ComparedTokenCommentId(commentId);

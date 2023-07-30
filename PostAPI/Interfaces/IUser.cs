@@ -8,7 +8,7 @@ namespace PostAPI.Interfaces
         Task<List<User>> GetUsers();
         Task<bool> CreateUser(User user, IFormFile file);
         Task<bool> UpdateUser(UserUpdateDto user, IFormFile file);
-        Task<bool> DeleteUser(User user);
+        Task<bool> DeleteUser(int userId);
         Task<string> UploadProfilePicture(IFormFile file);
         Task<User> GetUser(string username);
         Task<User> GetUserById(int userId);

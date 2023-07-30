@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using PostAPI.Dto;
 using PostAPI.Interfaces;
 using PostAPI.Models;
@@ -11,10 +12,14 @@ namespace PostAPI.Controller
     public class UserController : ControllerBase
     {
         private readonly IUser _userService;
+        private readonly IPost _postService;
+        private readonly IComment _commentService;
 
-        public UserController(IUser userService)
+        public UserController(IUser userService, IPost postService, IComment commentService)
         {
             _userService = userService;
+            _postService = postService;
+            _commentService = commentService;
         }
 
         [HttpGet]
@@ -27,6 +32,7 @@ namespace PostAPI.Controller
         }
 
         [HttpGet("id/{userId}")]
+        //[Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(User))]
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
@@ -37,29 +43,11 @@ namespace PostAPI.Controller
 
             if (!exists)
                 return NotFound("User does not exist");
-
-            var userDto = new User
-            {
-                User_Id = user.User_Id,
-                Username = user.Username,
-                First_Name = user.First_Name,
-                Last_Name = user.Last_Name,
-                Created = user.Created,
-                Email = user.Email,
-                Role = user.Role,
-                Gender = user.Gender,
-                Birthday = user.Birthday,
-                Profile_Picture = user.Profile_Picture,
-                Bio = user.Bio,
-                Status = user.Status,
-                Last_Login = user.Last_Login
-            };
-
-
+                
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok(userDto);
+            return Ok(user);
         }
 
         [HttpGet("username/{username}")]
@@ -82,6 +70,7 @@ namespace PostAPI.Controller
                 First_Name = user.First_Name,
                 Last_Name = user.Last_Name,
                 Created = user.Created,
+                Role = user.Role,
                 Gender = user.Gender,
                 Profile_Picture = user.Profile_Picture,
                 Bio = user.Bio,
@@ -93,6 +82,46 @@ namespace PostAPI.Controller
                 return BadRequest();
 
             return Ok(userDto);
+        }
+
+        [HttpGet("{userId}/posts")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<Post>))]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetPostsByUserId(int userId)
+        {
+            var posts = await _postService.GetPostsByUserId(userId);
+
+            bool userExists = await _userService.UserIdExists(userId);
+
+            if (!userExists)
+                return NotFound($"User with ID {userId} does not exist");
+
+            if(posts.Count == 0) return NotFound("Such empty.");
+
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            return Ok(posts);
+        }
+
+        [HttpGet("{userId}/comments")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetCommentsByUserId(int userId)
+        {
+            var comments = await _commentService.GetCommentsByUserId(userId);
+
+            bool userExists = await _userService.UserIdExists(userId);
+
+            if (!userExists)
+                return NotFound($"User with ID {userId} does not exist");
+
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            return Ok(comments);
         }
 
         [HttpPost("signup")]
@@ -181,8 +210,7 @@ namespace PostAPI.Controller
 
             if (!updated)
             {
-                ModelState.AddModelError("", "Something went wrong");
-                return StatusCode(500, ModelState);
+                return BadRequest("No field changes");
             }
 
             return Ok("User updated");
@@ -203,7 +231,7 @@ namespace PostAPI.Controller
 
             var user = await _userService.GetUserById(id);
 
-            bool deleted = await _userService.DeleteUser(user);
+            bool deleted = await _userService.DeleteUser(id);
 
             if (!deleted)
             {
