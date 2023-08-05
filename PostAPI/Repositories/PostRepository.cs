@@ -144,7 +144,7 @@ namespace PostAPI.Repositories
             return await _context.Posts.FirstOrDefaultAsync(p => p.Post_Id == id);
         }
 
-        public async Task<List<PostView>> GetPostsByUserId(int userId)
+        public async Task<List<PostView>> GetUserPostsByUsername(string username)
         {
             return await _context.Posts.GroupJoin(
                 _context.Users,
@@ -165,7 +165,7 @@ namespace PostAPI.Repositories
                     Profile_Picture = user != null ? user.Profile_Picture : "No picture"
                 }
                 )
-                .Where(p => p.User_Id == userId)
+                .Where(p => p.Author == username)
                 .ToListAsync();
         }
     }

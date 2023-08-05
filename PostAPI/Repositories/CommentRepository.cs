@@ -108,7 +108,7 @@ namespace PostAPI.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<CommentView>> GetCommentsByUserId(int userId)
+        public async Task<List<CommentView>> GetCommentsByUsername(string username)
         {
             return await _context.Comments.GroupJoin( // * This join can also be done with a view
                 _context.Users,
@@ -131,7 +131,7 @@ namespace PostAPI.Repositories
                     Profile_Picture = user.Profile_Picture
                 }
                 )
-                .Where(c => c.User_Id == userId)
+                .Where(c => c.Author == username)
                 .ToListAsync();
         }
 

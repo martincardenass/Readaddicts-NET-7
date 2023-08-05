@@ -7,7 +7,7 @@ namespace PostAPI.Interfaces
         Task<List<PostView>> GetPosts(int page, int pageSize);
         Task<bool> IdExists(int id);
         Task<PostView> GetPostViewById(int id);
-        Task<List<PostView>> GetPostsByUserId(int userId);
+        Task<List<PostView>> GetUserPostsByUsername(string username);
         Task<Post> GetPostById(int id);
         Task<bool> CompareTokenPostId(int  postId);
         Task<bool> CreatePost(Post post);

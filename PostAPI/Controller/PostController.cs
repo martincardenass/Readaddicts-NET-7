@@ -18,14 +18,13 @@ namespace PostAPI.Controller
 
         [HttpGet("allposts")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
-        [ProducesResponseType(404)]
         [ProducesResponseType(400)]
         public async Task<IActionResult> GetPosts(int page, int pageSize)
         {
             var posts = await _postService.GetPosts(page, pageSize);
 
-            if (!posts.Any())
-                return NotFound("Seems like you have reached the end");
+            // * Not returning any response when we reach a page that has no posts. Just return an empty array[] (200 response tho).
+            // * It was causing issues with the appending in the frontend. There might be still a solution but this works just fine (by now!)
 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
