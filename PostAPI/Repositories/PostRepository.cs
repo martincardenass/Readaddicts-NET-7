@@ -9,12 +9,14 @@ namespace PostAPI.Repositories
         private readonly AppDbContext _context;
         private readonly IUser _userService;
         private readonly IToken _tokenService;
+        private readonly IComment _commentService;
 
-        public PostRepository(AppDbContext context, IUser userService, IToken tokenService)
+        public PostRepository(AppDbContext context, IUser userService, IToken tokenService, IComment commentService)
         {
             _context = context;
             _userService = userService;
             _tokenService = tokenService;
+            _commentService = commentService;
         }
 
         public async Task<bool> IdExists(int id)
@@ -22,7 +24,7 @@ namespace PostAPI.Repositories
             return await _context.Posts.AnyAsync(i => i.Post_Id == id);
         }
 
-        public async Task<bool> CreatePost(Post post)
+        public async Task<int> CreatePost(Post post)
         {
             int userId = await _tokenService.ExtractIdFromToken();
 
@@ -30,12 +32,14 @@ namespace PostAPI.Repositories
             {
                 User_Id = userId,
                 Created = DateTime.UtcNow,
-                Modified = DateTime.UtcNow,
+                //Modified = DateTime.UtcNow, No modified date.
                 Content = post.Content
             };
 
             _context.Add(newPost);
-            return await _context.SaveChangesAsync() > 0;
+            _ = await _context.SaveChangesAsync() > 0;
+
+            return newPost.Post_Id;
         }
 
         public async Task<bool> DeletePost(Post post)
@@ -45,9 +49,20 @@ namespace PostAPI.Repositories
             var comparasion = await CompareTokenPostId(post.Post_Id);
             var admin = await _userService.CheckAdminStatus();
 
-            if(comparasion == true || admin)
+            var comments = await _commentService.GetComments(post.Post_Id);
+
+            if (comparasion == true || admin)
             {
                 _context.Posts.Remove(toDelete);
+                // * This will delete all the comments of the post
+                if(comments.Count > 0)
+                {
+                    foreach (var comment in comments)
+                    {
+                        _context.Comments.Remove(comment);
+                    }
+                }
+
                 return await _context.SaveChangesAsync() > 0;
             }
             else
@@ -106,6 +121,7 @@ namespace PostAPI.Repositories
                     First_Name = user.First_Name,
                     Last_Name = user.Last_Name,
                     Created = post.posts.Created,
+                    Modified = post.posts.Modified,
                     Content = post.posts.Content,
                     Profile_Picture = user != null ? user.Profile_Picture : "No picture",
                 }
@@ -132,10 +148,11 @@ namespace PostAPI.Repositories
                     First_Name = user.First_Name,
                     Last_Name = user.Last_Name,
                     Created = post.posts.Created,
+                    Modified = post.posts.Modified,
                     Content = post.posts.Content,
                     Profile_Picture = user != null ? user.Profile_Picture : "No picture",
                 }
-                ).Skip(postsToSkip).Take(pageSize).ToListAsync();
+                ).OrderByDescending(p => p.Created).Skip(postsToSkip).Take(pageSize).ToListAsync();
             return posts;
         }
 
@@ -161,10 +178,12 @@ namespace PostAPI.Repositories
                     First_Name = user.First_Name,
                     Last_Name = user.Last_Name,
                     Created = post.posts.Created,
+                    Modified = post.posts.Modified,
                     Content = post.posts.Content,
                     Profile_Picture = user != null ? user.Profile_Picture : "No picture"
                 }
                 )
+                .OrderByDescending(p => p.Created)
                 .Where(p => p.Author == username)
                 .ToListAsync();
         }

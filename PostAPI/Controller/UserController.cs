@@ -215,7 +215,7 @@ namespace PostAPI.Controller
                 return BadRequest("No field changes");
             }
 
-            return Ok("User updated");
+            return Ok("User updated. It may take a while for the changes to reflect.");
         }
 
         [HttpDelete("delete/{id}")]

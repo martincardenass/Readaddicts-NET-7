@@ -72,9 +72,9 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            bool posted = await _postService.CreatePost(post);
+            int newPostId = await _postService.CreatePost(post);
 
-            if(!posted)
+            if(newPostId == 0)
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -83,7 +83,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            return Ok("Post created");
+            return Ok($"{newPostId}");
         }
 
         [HttpDelete("delete/{id}")]

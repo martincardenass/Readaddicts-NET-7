@@ -10,7 +10,7 @@ namespace PostAPI.Interfaces
         Task<List<PostView>> GetUserPostsByUsername(string username);
         Task<Post> GetPostById(int id);
         Task<bool> CompareTokenPostId(int  postId);
-        Task<bool> CreatePost(Post post);
+        Task<int> CreatePost(Post post);
         Task<bool> DeletePost(Post post);
         Task<bool> UpdatePost(int id, Post post);
     }

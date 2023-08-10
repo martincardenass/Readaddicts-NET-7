@@ -19,5 +19,6 @@ namespace PostAPI.Models
         public bool Anonymous { get; set; }
         public string Author { get; set; }
         public string? Profile_Picture { get; set; }
+        public int? Replies { get; set; }
     }
 }

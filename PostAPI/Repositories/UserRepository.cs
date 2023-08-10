@@ -198,20 +198,6 @@ namespace PostAPI.Repositories
                 existingUser.Bio = user.Bio ?? existingUser.Bio;
                 existingUser.Status = user.Status ?? existingUser.Status;
 
-                bool changes =
-                    existingUser.First_Name == user.First_Name ||
-                    existingUser.Last_Name == user.Last_Name ||
-                    existingUser.Email == user.Email ||
-                    existingUser.Password == hashedPw ||
-                    existingUser.Gender == user.Gender ||
-                    existingUser.Birthday == user.Birthday ||
-                    existingUser.Profile_Picture == profilePictureUrl ||
-                    existingUser.Bio == user.Bio;
-                //existingUser.Status == user.Status;
-
-                if (!changes)
-                    return false;
-
                 _context.Update(existingUser);
                 return await _context.SaveChangesAsync() > 0;
             }

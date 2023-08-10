@@ -19,6 +19,53 @@ namespace PostAPI.Repositories
             _userService = userService;
         }
 
+        public IQueryable<CommentView> CommentJoinQuery()
+        {
+            return _context.Comments.GroupJoin( // * This join can also be done with a view
+                _context.Users,
+                comment => comment.User_Id,
+                user => user.User_Id,
+                (comment, users) => new { comment, users })
+                .SelectMany(
+                x => x.users.DefaultIfEmpty(),
+                (comment, user) => new CommentView
+                {
+                    Comment_Id = comment.comment.Comment_Id,
+                    User_Id = comment.comment.User_Id,
+                    Post_Id = comment.comment.Post_Id,
+                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
+                    Content = comment.comment.Content,
+                    Created = comment.comment.Created,
+                    Modified = comment.comment.Modified,
+                    Anonymous = comment.comment.Anonymous,
+                    Author = user != null ? user.Username : "Anonymous",
+                    Profile_Picture = user.Profile_Picture,
+                })
+                .GroupJoin(
+                _context.Comments,
+                c => c.Comment_Id,
+                reply => reply.Parent_Comment_Id,
+                (c, replies) => new
+                {
+                    CommentView = c,
+                    Replies = replies.Count()
+                })
+                .Select(result => new CommentView
+                {
+                    Comment_Id = result.CommentView.Comment_Id,
+                    User_Id = result.CommentView.User_Id,
+                    Post_Id = result.CommentView.Post_Id,
+                    Parent_Comment_Id = result.CommentView.Parent_Comment_Id,
+                    Content = result.CommentView.Content,
+                    Created = result.CommentView.Created,
+                    Modified = result.CommentView.Modified,
+                    Anonymous = result.CommentView.Anonymous,
+                    Author = result != null ? result.CommentView.Author : "Anonymous",
+                    Profile_Picture = result.CommentView.Profile_Picture,
+                    Replies = result.Replies
+                });
+        }
+
         public async Task<bool> CommentIdExists(int commentId)
         {
             return await _context.Comments.AnyAsync(i => i.Comment_Id == commentId);
@@ -76,63 +123,36 @@ namespace PostAPI.Repositories
             }
         }
 
+        public async Task<List<CommentView>> GetChildCommentsById(int commentId)
+        {
+            return await CommentJoinQuery().Where(c => c.Parent_Comment_Id == commentId).ToListAsync();
+        }
+
         public async Task<Comment> GetCommentById(int commentId)
         {
             return await _context.Comments.FirstOrDefaultAsync(c => c.Comment_Id == commentId);
         }
 
+        public async Task<List<Comment>> GetComments(int postId)
+        {
+            // * Will return a list of all the comments of a post. This is to delete them when we delete a post. We cannot use the one after this one because its a VIEW
+            return await _context.Comments.Where(p => p.Post_Id == postId).ToListAsync();
+        }
+
         public async Task<List<CommentView>> GetCommentsByPostId(int postId)
         {
-            return await _context.Comments.GroupJoin( // * This join can also be done with a view
-                _context.Users,
-                comment => comment.User_Id,
-                user => user.User_Id,
-                (comment, users) => new { comment, users })
-                .SelectMany(
-                x => x.users.DefaultIfEmpty(),
-                (comment, user) => new CommentView
-                {
-                    Comment_Id = comment.comment.Comment_Id,
-                    User_Id = comment.comment.User_Id,
-                    Post_Id = comment.comment.Post_Id,
-                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
-                    Content = comment.comment.Content,
-                    Created = comment.comment.Created,
-                    Modified = comment.comment.Modified,
-                    Anonymous = comment.comment.Anonymous,
-                    Author = user != null ? user.Username : "Anonymous",
-                    Profile_Picture = user.Profile_Picture
-                }
-                )
-                .Where(c => c.Post_Id == postId)
-                .ToListAsync();
+            // * Will return only parent comments
+            return await CommentJoinQuery().Where(c => c.Post_Id == postId && c.Parent_Comment_Id == null).ToListAsync();
         }
 
         public async Task<List<CommentView>> GetCommentsByUsername(string username)
         {
-            return await _context.Comments.GroupJoin( // * This join can also be done with a view
-                _context.Users,
-                comment => comment.User_Id,
-                user => user.User_Id,
-                (comment, users) => new { comment, users })
-                .SelectMany(
-                x => x.users.DefaultIfEmpty(),
-                (comment, user) => new CommentView
-                {
-                    Comment_Id = comment.comment.Comment_Id,
-                    User_Id = comment.comment.User_Id,
-                    Post_Id = comment.comment.Post_Id,
-                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
-                    Content = comment.comment.Content,
-                    Created = comment.comment.Created,
-                    Modified = comment.comment.Modified,
-                    Anonymous = comment.comment.Anonymous,
-                    Author = user != null ? user.Username : "Anonymous",
-                    Profile_Picture = user.Profile_Picture
-                }
-                )
-                .Where(c => c.Author == username)
-                .ToListAsync();
+            return await CommentJoinQuery().OrderByDescending(p => p.Created).Where(c => c.Author == username).ToListAsync();
+        }
+
+        public async Task<CommentView> GetCommentViewById(int commentId)
+        {
+            return await CommentJoinQuery().FirstOrDefaultAsync(i => i.Comment_Id == commentId);
         }
 
         public async Task<bool> UpdateComment(int commentId, Comment comment)
