@@ -10,10 +10,12 @@ namespace PostAPI.Controller
     public class PostController : ControllerBase
     {
         private readonly IPost _postService;
+        private readonly IImage _imageService;
 
-        public PostController(IPost postService)
+        public PostController(IPost postService, IImage imageService)
         {
             _postService = postService;
+            _imageService = imageService;
         }
 
         [HttpGet("allposts")]
@@ -50,13 +52,28 @@ namespace PostAPI.Controller
             return Ok(post);
         }
 
+        [HttpGet("{id}/images")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<ImageView>))]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetImagesByPostId(int id)
+        {
+            var images = await _imageService.GetImagesByPostId(id);
+
+            bool hasImages = await _imageService.PostHasImages(id);
+
+            if (!hasImages) return NotFound("This post has no images");
+
+            return Ok(images);
+        }
+
         [HttpPost]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> CreatePost(Post post)
+        public async Task<IActionResult> CreatePost([FromForm] List<IFormFile?> files, [FromForm] Post post)
         {
             var validator = new PostValidator();
             var validationResult = await validator.ValidateAsync(post);
@@ -72,7 +89,7 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            int newPostId = await _postService.CreatePost(post);
+            int newPostId = await _postService.CreatePost(files, post);
 
             if(newPostId == 0)
             {
@@ -120,7 +137,7 @@ namespace PostAPI.Controller
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> UpdatePostAsync(int id, [FromBody] Post post)
+        public async Task<IActionResult> UpdatePostAsync([FromForm] List<IFormFile?> files, int id, [FromForm] Post post)
         {
             bool exists = await _postService.IdExists(id);
 
@@ -141,7 +158,7 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             }
             
-            var updated = await _postService.UpdatePost(id, post);
+            var updated = await _postService.UpdatePost(files, id, post);
 
             if (!updated)
             {

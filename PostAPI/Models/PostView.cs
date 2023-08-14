@@ -16,5 +16,6 @@ namespace PostAPI.Models
         public string? Profile_Picture { get; set; }
         public string? First_Name { get; set; }
         public string? Last_Name { get; set; }
+        public int? Comments { get; set; }
     }
 }
