@@ -126,8 +126,6 @@ namespace PostAPI.Repositories
 
         public async Task<List<PostView>> GetPosts(int page, int pageSize)
         {
-            // * Pagination logic & left join of table to get profile picture and first and last name per post
-
             int postsToSkip = (page - 1) * pageSize;
             return await PostJoinQuery()
                 .OrderByDescending(p => p.Created)
@@ -151,7 +149,8 @@ namespace PostAPI.Repositories
 
         public IQueryable<PostView> PostJoinQuery()
         {
-            return _context.Posts.GroupJoin(
+            return _context.Posts
+                .GroupJoin(
                 _context.Users,
                 post => post.User_Id,
                 user => user.User_Id,
@@ -174,24 +173,33 @@ namespace PostAPI.Repositories
                 _context.Comments,
                 post => post.Post_Id,
                 comment => comment.Post_Id,
-                (post, comment) => new
+                (post, comment) => new PostView
                 {
-                    PostView = post,
+                    User_Id = post.User_Id,
+                    Post_Id = post.Post_Id,
+                    Author = post.Author,
+                    First_Name = post.First_Name,
+                    Last_Name = post.Last_Name,
+                    Created = post.Created,
+                    Modified = post.Modified,
+                    Content = post.Content,
+                    Profile_Picture = post.Author != null ? post.Profile_Picture : "No picture",
                     Comments = comment.Count()
                 })
                 .Select(result => new PostView
                 {
-                    User_Id = result.PostView.User_Id,
-                    Post_Id = result.PostView.Post_Id,
-                    Author = result.PostView.Author,
-                    First_Name = result.PostView.First_Name,
-                    Last_Name = result.PostView.Last_Name,
-                    Created = result.PostView.Created,
-                    Modified = result.PostView.Modified,
-                    Content = result.PostView.Content,
-                    Profile_Picture = result != null ? result.PostView.Profile_Picture : "No picture",
-                    Comments = result.Comments
-                });
+                    User_Id = result.User_Id,
+                    Post_Id = result.Post_Id,
+                    Author = result.Author,
+                    First_Name = result.First_Name,
+                    Last_Name = result.Last_Name,
+                    Created = result.Created,
+                    Modified = result.Modified,
+                    Content = result.Content,
+                    Profile_Picture = result != null ? result.Profile_Picture : "No picture",
+                    Comments = result.Comments,
+                    Images = _context.Images.Where(image => image.Post_Id == result.Post_Id).ToList()
+                }); ;
         }
 
         public async Task AddImagesToPost(List<IFormFile> files, int posttId)

@@ -17,5 +17,6 @@ namespace PostAPI.Models
         public string? First_Name { get; set; }
         public string? Last_Name { get; set; }
         public int? Comments { get; set; }
+        public ICollection<Image> Images { get; set; }
     }
 }

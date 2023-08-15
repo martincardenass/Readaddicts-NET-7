@@ -54,15 +54,13 @@ namespace PostAPI.Controller
 
         [HttpGet("{id}/images")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<ImageView>))]
-        [ProducesResponseType(404)]
         [ProducesResponseType(400)]
         public async Task<IActionResult> GetImagesByPostId(int id)
         {
             var images = await _imageService.GetImagesByPostId(id);
 
-            bool hasImages = await _imageService.PostHasImages(id);
-
-            if (!hasImages) return NotFound("This post has no images");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             return Ok(images);
         }
