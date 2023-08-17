@@ -147,7 +147,27 @@ namespace PostAPI.Repositories
 
         public async Task<List<CommentView>> GetCommentsByUsername(string username)
         {
-            return await CommentJoinQuery().OrderByDescending(p => p.Created).Where(c => c.Author == username).ToListAsync();
+            return await 
+                _context.Comments
+                .GroupJoin(
+                    _context.Users,
+                    comment => comment.User_Id,
+                    user => user.User_Id,
+                    (comment, user) => new { comment, user })
+                .SelectMany(result => result.user.DefaultIfEmpty(), (comment, user) => new CommentView
+                {
+                    Comment_Id = comment.comment.Comment_Id,
+                    User_Id = comment.comment.User_Id, 
+                    Post_Id = comment.comment.Post_Id,
+                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
+                    Content = comment.comment.Content,
+                    Created = comment.comment.Created,
+                    Modified = comment.comment.Modified,
+                    Anonymous = comment.comment.Anonymous,
+                    Author = user != null ? user.Username : "Anonymous",
+                    Profile_Picture = user.Profile_Picture
+                })
+                .OrderByDescending(p => p.Created).Where(c => c.Author == username).ToListAsync();
         }
 
         public async Task<CommentView> GetCommentViewById(int commentId)

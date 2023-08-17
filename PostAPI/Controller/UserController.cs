@@ -24,11 +24,35 @@ namespace PostAPI.Controller
 
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(IEnumerable<User>))]
+        [ProducesResponseType(400)]
         public async Task<IActionResult> GetUsers()
         {
             var users = await _userService.GetUsers();
+            var usersDto = new List<User>();
 
-            return Ok(users);
+            foreach(var user in users)
+            {
+                var newUsers = new User
+                {
+                    Username = user.Username,
+                    First_Name = user.First_Name,
+                    Last_Name = user.Last_Name,
+                    Created = user.Created,
+                    Role = user.Role,
+                    Gender = user.Gender,
+                    Birthday = user.Birthday,
+                    Profile_Picture = user.Profile_Picture,
+                    Bio = user.Bio,
+                    Status = user.Status
+                };
+
+                usersDto.Add(newUsers);
+            }
+
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            return Ok(usersDto);
         }
 
         [HttpGet("id/{userId}")]
