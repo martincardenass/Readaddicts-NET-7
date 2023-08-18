@@ -37,7 +37,7 @@ namespace PostAPI.Repositories
             return role == "admin";
         }
 
-        public async Task<bool> CreateUser(User user, IFormFile file)
+        public async Task<string> CreateUser(User user, IFormFile file)
         {
             string salt = BCrypt.Net.BCrypt.GenerateSalt();
             string hashedPw = BCrypt.Net.BCrypt.HashPassword(user.Password, salt);
@@ -62,7 +62,12 @@ namespace PostAPI.Repositories
             };
 
             _context.Add(newUser);
-            return await _context.SaveChangesAsync() > 0;
+            _ = await _context.SaveChangesAsync() > 0;
+
+            var userToLogin = await GetUser(newUser.Username);
+            var token = JwtTokenGenerator(userToLogin);
+
+            return token; // * Return the token when we create the user so we can login after creating the user
         }
 
         public async Task<(int id, string role)> DecodeHS512(string token)

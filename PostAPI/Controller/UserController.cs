@@ -34,6 +34,7 @@ namespace PostAPI.Controller
             {
                 var newUsers = new User
                 {
+                    User_Id = user.User_Id,
                     Username = user.Username,
                     First_Name = user.First_Name,
                     Last_Name = user.Last_Name,
@@ -170,9 +171,9 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            bool created = await _userService.CreateUser(user, imageFile);
+            string created = await _userService.CreateUser(user, imageFile);
 
-            if (!created)
+            if (created == "")
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -181,7 +182,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok($"User: {user.Username} was created");
+            return Ok(created);
         }
 
         [HttpPost("login")]

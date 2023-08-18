@@ -175,15 +175,17 @@ namespace PostAPI.Repositories
             // * Get the parent comments only
             var parentComments = await CommentJoinQuery().Where(c => c.Post_Id == postId && c.Parent_Comment_Id == null).ToListAsync();
 
-            var comments = new List<CommentView>();
+            return parentComments; // * Returning the parent Comments only.
 
-            foreach (var comment in parentComments)
-            {
-                var childComments = await RecursiveComments(comment, parentComments);
-                comments.AddRange(childComments);
-            }
+            //var comments = new List<CommentView>();
 
-            return comments;
+            //foreach (var comment in parentComments)
+            //{
+            //    var childComments = await RecursiveComments(comment, parentComments);
+            //    comments.AddRange(childComments);
+            //}
+
+            //return comments;
         }
 
         public async Task<List<CommentView>> GetCommentsByUsername(string username)

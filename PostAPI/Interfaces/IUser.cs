@@ -6,7 +6,7 @@ namespace PostAPI.Interfaces
     public interface IUser
     {
         Task<List<User>> GetUsers();
-        Task<bool> CreateUser(User user, IFormFile file);
+        Task<string> CreateUser(User user, IFormFile file);
         Task<bool> UpdateUser(UserUpdateDto user, IFormFile file);
         Task<bool> DeleteUser(int userId);
         Task<string> UploadProfilePicture(IFormFile file);
