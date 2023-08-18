@@ -21,7 +21,7 @@ namespace PostAPI.Repositories
 
         public IQueryable<CommentView> CommentJoinQuery()
         {
-            return _context.Comments.GroupJoin( // * This join can also be done with a view
+            var comments = _context.Comments.GroupJoin( // * This join can also be done with a view
                 _context.Users,
                 comment => comment.User_Id,
                 user => user.User_Id,
@@ -62,8 +62,10 @@ namespace PostAPI.Repositories
                     Anonymous = result.CommentView.Anonymous,
                     Author = result != null ? result.CommentView.Author : "Anonymous",
                     Profile_Picture = result.CommentView.Profile_Picture,
-                    Replies = result.Replies
+                    Replies = result.Replies,
                 });
+
+            return comments;
         }
 
         public async Task<bool> CommentIdExists(int commentId)
@@ -123,9 +125,38 @@ namespace PostAPI.Repositories
             }
         }
 
-        public async Task<List<CommentView>> GetChildCommentsById(int commentId)
+        public async Task<List<CommentView>> GetChildCommentsById(int commentId, List<CommentView> allComments)
         {
-            return await CommentJoinQuery().Where(c => c.Parent_Comment_Id == commentId).ToListAsync();
+            var comments = await CommentJoinQuery()
+                .Where(comment => comment.Parent_Comment_Id == commentId)
+                .ToListAsync();
+
+            var childComments = new List<CommentView>();
+
+            foreach(var comment in comments)
+            {
+                var childCommentView = new CommentView
+                {
+                    Comment_Id = comment.Comment_Id,
+                    User_Id = comment.User_Id,
+                    Post_Id = comment.Post_Id,
+                    Parent_Comment_Id = comment.Parent_Comment_Id,
+                    Content = comment.Content,
+                    Created = comment.Created,
+                    Modified = comment.Modified,
+                    Anonymous = comment.Anonymous,
+                    Author = comment != null ? comment.Author : "Anonymous",
+                    Profile_Picture = comment.Profile_Picture,
+                    Replies = comment.Replies
+                };
+
+                var recursive = await GetChildCommentsById(comment.Comment_Id, allComments);
+                childCommentView.ChildComments = recursive;
+
+                childComments.Add(childCommentView);
+            }
+
+            return childComments;
         }
 
         public async Task<Comment> GetCommentById(int commentId)
@@ -141,13 +172,23 @@ namespace PostAPI.Repositories
 
         public async Task<List<CommentView>> GetCommentsByPostId(int postId)
         {
-            // * Will return only parent comments
-            return await CommentJoinQuery().Where(c => c.Post_Id == postId && c.Parent_Comment_Id == null).ToListAsync();
+            // * Get the parent comments only
+            var parentComments = await CommentJoinQuery().Where(c => c.Post_Id == postId && c.Parent_Comment_Id == null).ToListAsync();
+
+            var comments = new List<CommentView>();
+
+            foreach (var comment in parentComments)
+            {
+                var childComments = await RecursiveComments(comment, parentComments);
+                comments.AddRange(childComments);
+            }
+
+            return comments;
         }
 
         public async Task<List<CommentView>> GetCommentsByUsername(string username)
         {
-            return await 
+            var comments = await 
                 _context.Comments
                 .GroupJoin(
                     _context.Users,
@@ -164,16 +205,48 @@ namespace PostAPI.Repositories
                     Created = comment.comment.Created,
                     Modified = comment.comment.Modified,
                     Anonymous = comment.comment.Anonymous,
-                    Author = user != null ? user.Username : "Anonymous",
+                    Author = user == null ? "Anonymous" : user.Username,
                     Profile_Picture = user.Profile_Picture
                 })
                 .OrderByDescending(p => p.Created).Where(c => c.Author == username).ToListAsync();
+
+            var additionalComments = new List<CommentView>();
+
+            foreach (var comment in comments)
+            {
+                var childComments = await RecursiveComments(comment, comments);
+                additionalComments.AddRange(childComments);
+            }
+
+            return additionalComments;
         }
 
-        public async Task<CommentView> GetCommentViewById(int commentId)
+        public async Task<List<CommentView>> GetCommentViewById(int commentId)
         {
-            return await CommentJoinQuery().FirstOrDefaultAsync(i => i.Comment_Id == commentId);
+            var comment = await CommentJoinQuery()
+                .FirstOrDefaultAsync(i => i.Comment_Id == commentId);
+
+            var allComments = await CommentJoinQuery().ToListAsync();
+
+            var childComments = new List<CommentView>();
+
+            var commentWithReplies = new CommentView
+            {
+                Comment_Id = comment.Comment_Id,
+                User_Id = comment.User_Id,
+                Post_Id = comment.Post_Id,
+                Parent_Comment_Id = comment.Parent_Comment_Id,
+                Content = comment.Content,
+                Created = comment.Created,
+                Modified = comment.Modified,
+                Anonymous = comment.Anonymous,
+                Author = comment.Author,
+                Profile_Picture = comment.Profile_Picture
+            };
+
+            return await RecursiveComments(comment, allComments);
         }
+
 
         public async Task<bool> UpdateComment(int commentId, Comment comment)
         {
@@ -196,6 +269,51 @@ namespace PostAPI.Repositories
             {
                 return false;
             }
+        }
+
+        public async Task<List<CommentView>> RecursiveComments(CommentView parentComment, List<CommentView> comments)
+        {
+            var replies = await GetChildCommentsById(parentComment.Comment_Id, comments);
+
+            var childComments = comments
+                .Where(x => x.Comment_Id == parentComment.Comment_Id)
+                .GroupJoin(
+                _context.Comments,
+                c => c.Comment_Id,
+                reply => reply.Parent_Comment_Id,
+                (x, r) => new CommentView
+                {
+                    Comment_Id = x.Comment_Id,
+                    User_Id = x.User_Id,
+                    Post_Id = x.Post_Id,
+                    Parent_Comment_Id = x.Parent_Comment_Id,
+                    Content = x.Content,
+                    Created = x.Created,
+                    Modified = x.Modified,
+                    Anonymous = x.Anonymous,
+                    Author = x.Author,
+                    Profile_Picture = x.Profile_Picture,
+                    Replies = r.Count()
+                }
+                )
+                .Select(x => new CommentView
+                {
+                    Comment_Id = x.Comment_Id,
+                    User_Id = x.User_Id,
+                    Post_Id = x.Post_Id,
+                    Parent_Comment_Id = x.Parent_Comment_Id,
+                    Content = x.Content,
+                    Created = x.Created,
+                    Modified = x.Modified,
+                    Anonymous = x.Anonymous,
+                    Author = x.Author,
+                    Profile_Picture = x.Profile_Picture,
+                    Replies = x.Replies,
+                    ChildComments = replies
+                })
+                .ToList();
+
+            return childComments;
         }
     }
 }

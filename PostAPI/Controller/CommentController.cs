@@ -48,21 +48,21 @@ namespace PostAPI.Controller
             return Ok(comment);
         }
 
-        [HttpGet("id/{commentId}/responses")]
-        [ProducesResponseType(200, Type = typeof(Comment))]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> GetChildCommentsById(int commentId)
-        {
-            var comments = await _commentService.GetChildCommentsById(commentId);
+        //[HttpGet("id/{commentId}/responses")]
+        //[ProducesResponseType(200, Type = typeof(Comment))]
+        //[ProducesResponseType(400)]
+        //[ProducesResponseType(404)]
+        //public async Task<IActionResult> GetChildCommentsById(int commentId)
+        //{
+        //    var comments = await _commentService.GetChildCommentsById(commentId);
 
-            if (comments.Count == 0) return NotFound();
+        //    if (comments.Count == 0) return NotFound();
 
-            if (!ModelState.IsValid)
-                return BadRequest();
+        //    if (!ModelState.IsValid)
+        //        return BadRequest();
 
-            return Ok(comments);
-        }
+        //    return Ok(comments);
+        //}
 
         [HttpPost("post/{postId}")]
         // * No authorize because anyone can post comments

@@ -20,5 +20,6 @@ namespace PostAPI.Models
         public string Author { get; set; }
         public string? Profile_Picture { get; set; }
         public int? Replies { get; set; }
+        public ICollection<CommentView> ChildComments { get; set; }
     }
 }
