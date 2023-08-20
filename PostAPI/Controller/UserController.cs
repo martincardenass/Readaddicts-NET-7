@@ -56,6 +56,29 @@ namespace PostAPI.Controller
             return Ok(usersDto);
         }
 
+        [HttpPost("Validator/UsernameExists/{username}")]
+        [ProducesResponseType(200)]
+        public async Task<IActionResult> ValidateIfUsernameExists(string username)
+        {
+            bool exists = await _userService.UserExists(username);
+
+            if (!exists) return Ok(new { NotOk = "Username does not exist"});
+
+            return Ok(new { Ok = "Username exists"});
+        }
+
+        [HttpPost("Validator/EmailExists/{email}")]
+        [ProducesResponseType(200)]
+        public async Task<IActionResult> ValidateIfEmailExists(string email)
+        {
+            bool exists = await _userService.EmailExists(email);
+
+            if (!exists) return Ok(new { NotOk = "Email does not exist" });
+
+            return Ok(new { Ok = "Email exists"});
+        }
+
+
         [HttpGet("id/{userId}")]
         //[Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(User))]
@@ -95,6 +118,7 @@ namespace PostAPI.Controller
                 First_Name = user.First_Name,
                 Last_Name = user.Last_Name,
                 Created = user.Created,
+                Email = user.Email,
                 Role = user.Role,
                 Gender = user.Gender,
                 Profile_Picture = user.Profile_Picture,
