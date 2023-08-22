@@ -46,6 +46,7 @@ builder.Services.AddScoped<IPost, PostRepository>();
 builder.Services.AddScoped<IToken, IdFromToken>();
 builder.Services.AddScoped<IComment, CommentRepository>();
 builder.Services.AddScoped<IImage, ImageRepository>();
+builder.Services.AddScoped<IGroups, GroupsRepository>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
