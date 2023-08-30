@@ -14,6 +14,7 @@ namespace PostAPI.Models
         public DateTime Created { get; set; }
         public string Content { get; set; }
         public DateTime Modified { get; set; }
+        public int? Group_Id { get; set; }
     }
 }
 

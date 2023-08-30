@@ -1,6 +1,4 @@
-﻿using CloudinaryDotNet.Actions;
-using CloudinaryDotNet;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using PostAPI.Interfaces;
 using PostAPI.Models;
@@ -17,14 +15,14 @@ namespace PostAPI.Repositories
     {
         private readonly AppDbContext _context;
         private readonly IHttpContextAccessor _http;
-        private readonly Cloudinary _cloudinary;
+        private readonly IImage _imageService;
         private readonly JwtOptions _options;
 
-        public UserRepository(AppDbContext context, IHttpContextAccessor http, IOptions<JwtOptions> options, Cloudinary cloudinary)
+        public UserRepository(AppDbContext context, IHttpContextAccessor http, IOptions<JwtOptions> options, IImage imageService)
         {
             _context = context;
             _http = http;
-            _cloudinary = cloudinary;
+            _imageService = imageService;
             _options = options.Value;
         }
 
@@ -43,7 +41,7 @@ namespace PostAPI.Repositories
             string hashedPw = BCrypt.Net.BCrypt.HashPassword(user.Password, salt);
 
             // * Get the value of the Profile_Picture field from the payload. Upload to Cloudinary...
-            string? profilePictureUrl = await UploadProfilePicture(file); // * This should add the string URL
+            string? profilePictureUrl = await _imageService.UploadProfilePicture(file); // * This should add the string URL
 
             var newUser = new User()
             {
@@ -141,6 +139,20 @@ namespace PostAPI.Repositories
                 return null; // * Will return 204
         }
 
+        public async Task<UserLimitedDto?> GetUserLimited(string username)
+        {
+            // * A limited version of the user to store an object in the localstorage
+            return await _context.Users
+                .Where(user => user.Username == username)
+                .Select(user => new UserLimitedDto
+                {
+                    User_Id = user.User_Id,
+                    Username = user.Username,
+                    Profile_Picture = user.Profile_Picture
+                })
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<List<User>> GetUsers()
         {
             return await _context.Users.OrderBy(user => user.User_Id).ToListAsync();
@@ -174,7 +186,7 @@ namespace PostAPI.Repositories
             return tokenHandler.WriteToken(token);
         }
 
-        public async Task<bool> UpdateUser(UserUpdateDto user, IFormFile? file)
+        public async Task<User?> UpdateUser(UserUpdateDto user, IFormFile? file)
         {
             var token = await GetToken();
             var (id, _) = await DecodeHS512(token);
@@ -186,7 +198,7 @@ namespace PostAPI.Repositories
                 hashedPw = BCrypt.Net.BCrypt.HashPassword(user.Password, salt);
             }
             
-            string? profilePictureUrl = await UploadProfilePicture(file);
+            string? profilePictureUrl = await _imageService.UploadProfilePicture(file);
 
             var existingUser = _context.Users.Find(id);
 
@@ -204,41 +216,15 @@ namespace PostAPI.Repositories
                 existingUser.Status = user.Status ?? existingUser.Status;
 
                 _context.Update(existingUser);
-                return await _context.SaveChangesAsync() > 0;
+
+                _ = await _context.SaveChangesAsync() > 0;
+
+                return existingUser;
             }
             else
             {
-                return false;
+                return null;
             }
-        }
-
-        public async Task<string?> UploadProfilePicture(IFormFile file)
-        {
-            if(file != null && file.Length > 0)
-            {
-                // * Dispose the resources being used here
-                await using var stream = file.OpenReadStream();
-
-                var uploadParams = new ImageUploadParams
-                {
-                    File = new FileDescription(file.FileName, stream),
-                    Transformation = new Transformation().Width(300).Height(300).Crop("fill"),
-                    UseFilename = true,
-                    UniqueFilename = true,
-                    Overwrite = true
-                };
-
-                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-
-                if(uploadResult.Error  != null)
-                {
-                    // * Return an error message if an exception happens
-                    throw new Exception(uploadResult.Error.Message);
-                }
-
-                return uploadResult.SecureUrl.ToString();
-            }
-            return null; // * If no file is provided
         }
 
         public async Task<bool> UserExists(string username)

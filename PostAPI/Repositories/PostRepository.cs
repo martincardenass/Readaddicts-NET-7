@@ -27,24 +27,54 @@ namespace PostAPI.Repositories
                 .AnyAsync(i => i.Post_Id == id);
         }
 
-        public async Task<int> CreatePost(List<IFormFile> files, Post post)
+        public async Task<int> CreatePost(List<IFormFile> files, Post post, int? groupId)
         {
             int userId = await _tokenService.ExtractIdFromToken();
 
-            var newPost = new Post()
+            // * Check if the group exists
+            var findGroup = await _context.Groups.FindAsync(groupId);// * Return 0 will cause 500 server error
+
+            // * Get the relations of the same groupId
+            var relation = await _context.GroupsRelations.Where(g => g.Group_Id == groupId && g.User_Id == userId).FirstOrDefaultAsync();
+
+            if (findGroup != null && relation.User_Id == userId)
             {
-                User_Id = userId,
-                Created = DateTime.UtcNow,
-                Content = post.Content
-            };
+                var newPostWithGroup = new Post()
+                {
+                    User_Id = userId,
+                    Created = DateTime.UtcNow,
+                    Content = post.Content,
+                    Group_Id = groupId    
+                };
 
-            _context.Add(newPost);
-             
-            _ = await _context.SaveChangesAsync() > 0; // ** Add the new post and add the changes.
-        
-            await AddImagesToPost(files, newPost.Post_Id);
+                _context.Add(newPostWithGroup);
 
-            return newPost.Post_Id;
+                _ = await _context.SaveChangesAsync() > 0; // ** Add the new post and add the changes.
+
+                await AddImagesToPost(files, newPostWithGroup.Post_Id);
+
+                return newPostWithGroup.Post_Id;
+            }
+
+            // * If no groupId is provided, groupId will be equal to null; meaning the post does not have a group. Then just create a normal post
+            else
+            {
+                var newPostWithoutGroup = new Post()
+                {
+                    User_Id = userId,
+                    Created = DateTime.UtcNow,
+                    Content = post.Content,
+                    Group_Id = null // * No group
+                };
+
+                _context.Add(newPostWithoutGroup);
+
+                _ = await _context.SaveChangesAsync() > 0;
+
+                await AddImagesToPost(files, newPostWithoutGroup.Post_Id);
+
+                return newPostWithoutGroup.Post_Id;
+            }
         }
 
         public async Task<bool> DeletePost(Post post)
@@ -126,11 +156,13 @@ namespace PostAPI.Repositories
         {
             int postsToSkip = (page - 1) * pageSize;
             return await PostJoinQuery()
+                .Where(post => post.Group_Id == null)
                 .OrderByDescending(p => p.Created)
                 .Skip(postsToSkip)
                 .Take(pageSize)
                 .ToListAsync();
         }
+
         public async Task<Post> GetPostById(int id)
         {
             return await _context.Posts
@@ -152,52 +184,29 @@ namespace PostAPI.Repositories
                 _context.Users,
                 post => post.User_Id,
                 user => user.User_Id,
-                (posts, users) => new { posts, users })
-                .SelectMany(
-                x => x.users.DefaultIfEmpty(),
-                (post, user) => new PostView
-                {
-                    User_Id = post.posts.User_Id,
-                    Post_Id = post.posts.Post_Id,
-                    Author = user.Username,
-                    First_Name = user.First_Name,
-                    Last_Name = user.Last_Name,
-                    Created = post.posts.Created,
-                    Modified = post.posts.Modified,
-                    Content = post.posts.Content,
-                    Profile_Picture = user != null ? user.Profile_Picture : "No picture",
-                })
+                (post, user) => new { post, user })
+                .SelectMany(joinResult => joinResult.user.DefaultIfEmpty(),
+                (joinResult, user) => new { joinResult.post, user })
                 .GroupJoin(
                 _context.Comments,
-                post => post.Post_Id,
+                post => post.post.Post_Id,
                 comment => comment.Post_Id,
-                (post, comment) => new PostView
-                {
-                    User_Id = post.User_Id,
-                    Post_Id = post.Post_Id,
-                    Author = post.Author,
-                    First_Name = post.First_Name,
-                    Last_Name = post.Last_Name,
-                    Created = post.Created,
-                    Modified = post.Modified,
-                    Content = post.Content,
-                    Profile_Picture = post.Author != null ? post.Profile_Picture : "No picture",
-                    Comments = comment.Count()
-                })
+                (post, comment) => new { post, CommentCount = comment.Count() })
                 .Select(result => new PostView
                 {
-                    User_Id = result.User_Id,
-                    Post_Id = result.Post_Id,
-                    Author = result.Author,
-                    First_Name = result.First_Name,
-                    Last_Name = result.Last_Name,
-                    Created = result.Created,
-                    Modified = result.Modified,
-                    Content = result.Content,
-                    Profile_Picture = result != null ? result.Profile_Picture : "No picture",
-                    Comments = result.Comments,
-                    Images = _context.Images.Where(image => image.Post_Id == result.Post_Id).ToList()
-                }); ;
+                    User_Id = result.post.post.Post_Id,
+                    Post_Id = result.post.post.Post_Id,
+                    Author = result.post.user.Username,
+                    First_Name = result.post.user.First_Name,
+                    Last_Name = result.post.user.Last_Name,
+                    Created = result.post.post.Created,
+                    Modified = result.post.post.Modified,
+                    Content = result.post.post.Content,
+                    Profile_Picture = result != null ? result.post.user.Profile_Picture : "No picture",
+                    Comments = result.CommentCount,
+                    Group_Id = result.post.post.Group_Id,
+                    Images = _context.Images.Where(image => image.Post_Id == result.post.post.Post_Id).ToList()
+                });
         }
 
         public async Task AddImagesToPost(List<IFormFile> files, int posttId)
@@ -206,9 +215,33 @@ namespace PostAPI.Repositories
             {
                 foreach (var file in files) // * Iterate over every uploaded image and add it to the image table
                 {
-                    _ = await _imageService.AddImageToPost(file, posttId);
+                    _ = await AddImageToPost(file, posttId);
                 }
             }
+        }
+
+        public async Task<bool> AddImageToPost(IFormFile file, int postId)
+        {
+            string? imageUrl = await _imageService.UploadImage(file);
+
+            var Id = await _tokenService.ExtractIdFromToken();
+
+            var newImage = new Image
+            {
+                Post_Id = postId,
+                User_Id = Id,
+                Image_Url = imageUrl
+            };
+
+            _context.Add(newImage);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        public async Task<List<PostView>> GetPostsByGroupId(int groupId)
+        {
+            return await PostJoinQuery()
+                .Where(g => g.Group_Id == groupId)
+                .ToListAsync();
         }
     }
 }

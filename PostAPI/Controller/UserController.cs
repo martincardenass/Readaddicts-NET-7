@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
 using PostAPI.Dto;
 using PostAPI.Interfaces;
 using PostAPI.Models;
@@ -195,9 +194,12 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            string created = await _userService.CreateUser(user, imageFile);
+            string token = await _userService.CreateUser(user, imageFile);
 
-            if (created == "")
+            // * Get the userLimitedDto info (id, username and picture)
+            var userLimited = await _userService.GetUserLimited(user.Username);
+
+            if (token == "")
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -206,7 +208,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok(created);
+            return Ok(new { Token = token, User = userLimited });
         }
 
         [HttpPost("login")]
@@ -228,9 +230,11 @@ namespace PostAPI.Controller
 
             var userLogin = await _userService.GetUser(user.Username);
 
+            var userLimited = await _userService.GetUserLimited(user.Username);
+
             var token = _userService.JwtTokenGenerator(userLogin);
 
-            return Ok(token);
+            return Ok(new { Token = token, User = userLimited });
         }
 
         [HttpPatch("update")]
@@ -259,12 +263,12 @@ namespace PostAPI.Controller
 
             var updated = await _userService.UpdateUser(user, imageFile);
 
-            if (!updated)
+            if (updated == null)
             {
                 return BadRequest("No field changes");
             }
 
-            return Ok("User updated. It may take a while for the changes to reflect.");
+            return Ok(updated);
         }
 
         [HttpDelete("delete/{id}")]

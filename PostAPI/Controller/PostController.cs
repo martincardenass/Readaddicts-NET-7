@@ -65,13 +65,23 @@ namespace PostAPI.Controller
             return Ok(images);
         }
 
+        [HttpGet("Group/{groupId}")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetPostsByGroupId(int groupId)
+        {
+            var posts = await _postService.GetPostsByGroupId(groupId);
+
+            return Ok(posts);
+        }
+
         [HttpPost]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> CreatePost([FromForm] List<IFormFile?> files, [FromForm] Post post)
+        public async Task<IActionResult> CreatePost([FromForm] List<IFormFile?> files, [FromForm] Post post, [FromForm] int? groupId)
         {
             var validator = new PostValidator();
             var validationResult = await validator.ValidateAsync(post);
@@ -87,7 +97,7 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             };
 
-            int newPostId = await _postService.CreatePost(files, post);
+            int newPostId = await _postService.CreatePost(files, post, groupId);
 
             if(newPostId == 0)
             {

@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PostAPI.Models
 {
@@ -9,9 +8,9 @@ namespace PostAPI.Models
         [Key]
         public int Group_Id { get; set; }
         public string Group_Name { get; set; }
-        public string Group_Description { get; set; }
+        public string? Group_Description { get; set; }
         public int Group_Owner { get; set; }
-        public string Group_Picture { get; set; }
+        public string? Group_Picture { get; set; }
     }
 
     public class GroupValidator : AbstractValidator<Group>

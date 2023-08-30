@@ -28,15 +28,18 @@ namespace PostAPI.Repositories
             return idFromToken == idFromGroup;
         }
 
-        public async Task<bool> CreateGroup(Group group)
+        public async Task<bool> CreateGroup(Group group, IFormFile file)
         {
             int userId = await _tokenService.ExtractIdFromToken();
+
+            string? groupPictureUrl = await _imageService.UploadProfilePicture(file);
 
             var newGroup = new Group()
             {
                 Group_Name = group.Group_Name,
                 Group_Description = group.Group_Description,
-                Group_Owner = userId // * User ID from token is the group owner
+                Group_Owner = userId, // * User ID from token is the group owner
+                Group_Picture = groupPictureUrl
             };
 
             _context.Add(newGroup); // * Save the new group
@@ -97,6 +100,11 @@ namespace PostAPI.Repositories
             return await GroupJoinQuery().OrderBy(g => g.Group_Id).ToListAsync();
         }
 
+        public async Task<bool> GroupExists(string groupName)
+        {
+            return await _context.Groups.AnyAsync(n => n.Group_Name == groupName);
+        }
+
         public IQueryable<GroupView> GroupJoinQuery()
         {
             // * Joins the relations table with the users table and creates a Members property with all the members
@@ -124,15 +132,18 @@ namespace PostAPI.Repositories
                 {
                     grouped.Group.Group_Id,
                     grouped.Group.Group_Name,
-                    grouped.Group.Group_Description
+                    grouped.Group.Group_Description,
+                    grouped.Group.Group_Picture
                 })
                 .Select(grouped => new GroupView
                 {
                     Group_Id = grouped.Key.Group_Id,
                     Group_Name = grouped.Key.Group_Name,
                     Group_Description = grouped.Key.Group_Description,
+                    Group_Picture = grouped.Key.Group_Picture,
                     Owner = grouped.Select(g => g.Owner).FirstOrDefault(),
-                    Members = grouped.SelectMany(g => g.Members).ToList()
+                    Members_Count = grouped.SelectMany(count => count.Members).Count(),
+                    Members = grouped.SelectMany(g => g.Members).ToList()       
                 });
 
             return groups;
@@ -141,6 +152,20 @@ namespace PostAPI.Repositories
         public async Task<bool> JoinGroup(int groupId)
         {
             int userId = await _tokenService.ExtractIdFromToken();
+
+            var group = await GetGroupById(groupId);
+
+            // * Iterate over the users and check if the user its already registered
+            //foreach( var member in group.Members )
+            //{
+            //    if(userId == member.User_Id) return false;
+            //}
+
+            // * Better way without having to save the users into memory
+            bool isUserAlreadyMember = await _context.GroupsRelations
+                .AnyAsync(relation => relation.User_Id == userId && relation.Group_Id == groupId);
+
+            if (isUserAlreadyMember) return false;
 
             var relation = new GroupsRelations() // * Add the user from the token as a new member for the group
             {
@@ -153,16 +178,32 @@ namespace PostAPI.Repositories
             return await _context.SaveChangesAsync() > 0;
         }
 
-        public async Task<bool> UpdateGroup(int groupId, GroupUpdateDto group)
+        public async Task<bool> LeaveGroup(int groupId)
+        {
+            int userId = await _tokenService.ExtractIdFromToken();
+
+            var relations = await _context.GroupsRelations
+                .Where(relation => relation.Group_Id == groupId && relation.User_Id == userId)
+                .ToListAsync();
+
+            _context.RemoveRange(relations);
+
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        public async Task<bool> UpdateGroup(int groupId, GroupUpdateDto group, IFormFile file)
         {
             if (await CompareUserTokenWithGroupId(groupId))
             {
                 var groupToUpdate = await _context.Groups.FindAsync(groupId);
 
+                string? groupPictureUrl = await _imageService.UploadProfilePicture(file);
+
                 if (groupToUpdate != null)
                 {
                     groupToUpdate.Group_Name = group.Group_Name ?? groupToUpdate.Group_Name;
                     groupToUpdate.Group_Description = group.Group_Description ?? groupToUpdate.Group_Description;
+                    groupToUpdate.Group_Picture = groupPictureUrl ?? groupToUpdate.Group_Picture;
 
                     _context.Update(groupToUpdate);
                     return await _context.SaveChangesAsync() > 0;

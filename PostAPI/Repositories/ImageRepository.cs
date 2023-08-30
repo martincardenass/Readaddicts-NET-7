@@ -10,30 +10,11 @@ namespace PostAPI.Repositories
     {
         private readonly AppDbContext _context;
         private readonly Cloudinary _cloudinary;
-        private readonly IToken _token;
 
-        public ImageRepository(AppDbContext context, Cloudinary cloudinary, IToken token)
+        public ImageRepository(AppDbContext context, Cloudinary cloudinary)
         {
             _context = context;
             _cloudinary = cloudinary;
-            _token = token;
-        }
-
-        public async Task<bool> AddImageToPost(IFormFile file, int postId)
-        {
-            string? imageUrl = await UploadImage(file);
-
-            var Id = await _token.ExtractIdFromToken();
-
-            var newImage = new Image
-            {
-                Post_Id = postId,
-                User_Id = Id,
-                Image_Url = imageUrl
-            };
-
-            _context.Add(newImage);
-            return await _context.SaveChangesAsync() > 0;
         }
 
         public async Task<List<ImageView>> GetImagesByPostId(int postId)
@@ -82,6 +63,35 @@ namespace PostAPI.Repositories
                 return uploadResult.SecureUrl.ToString();
             }
             return null;
+        }
+
+        public async Task<string> UploadProfilePicture(IFormFile file)
+        {
+            if (file != null && file.Length > 0)
+            {
+                // * Dispose the resources being used here
+                await using var stream = file.OpenReadStream();
+
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(file.FileName, stream),
+                    Transformation = new Transformation().Width(300).Height(300).Crop("fill"),
+                    UseFilename = true,
+                    UniqueFilename = true,
+                    Overwrite = true
+                };
+
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+                if (uploadResult.Error != null)
+                {
+                    // * Return an error message if an exception happens
+                    throw new Exception(uploadResult.Error.Message);
+                }
+
+                return uploadResult.SecureUrl.ToString();
+            }
+            return null; // * If no file is provided
         }
     }
 }
