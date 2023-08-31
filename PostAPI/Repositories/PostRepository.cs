@@ -84,19 +84,37 @@ namespace PostAPI.Repositories
             var comparasion = await CompareTokenPostId(post.Post_Id);
             var admin = await _userService.CheckAdminStatus();
 
-            var comments = await _commentService.GetComments(post.Post_Id);
-
             if (comparasion == true || admin)
             {
-                _context.Posts.Remove(toDelete);
-                // * This will delete all the comments of the post
+                var comments = await _commentService.GetComments(post.Post_Id);
+
                 if(comments.Count > 0)
                 {
-                    foreach (var comment in comments)
+                    var childComments = comments
+                        .Where(comment => comment.Parent_Comment_Id.HasValue)
+                        .OrderByDescending(comment => comment.Parent_Comment_Id)
+                        .ToList();
+
+                    
+                    foreach (var comment in childComments)
                     {
-                        _context.Comments.Remove(comment);
+                        _context.Remove(comment);
+                        _ = await _context.SaveChangesAsync();
                     }
+
+                    var parentComments = comments
+                        .Except(childComments)
+                        .ToList();
+
+                    _context.RemoveRange(parentComments);
                 }
+
+                var images = await _imageService.GetImagesByPostIdNotView(post.Post_Id);
+
+                if (images.Count > 0)
+                    _context.RemoveRange(images);
+
+                _context.Posts.Remove(toDelete);
 
                 return await _context.SaveChangesAsync() > 0;
             }
@@ -242,6 +260,18 @@ namespace PostAPI.Repositories
             return await PostJoinQuery()
                 .Where(g => g.Group_Id == groupId)
                 .ToListAsync();
+        }
+
+        public async Task DeleteRecursiveComments(Comment comment)
+        {
+            var childComments = _context.Comments
+                .Where(c => c.Parent_Comment_Id == comment.Parent_Comment_Id)
+                .ToList();
+
+            foreach (var child in childComments)
+            {
+                DeleteRecursiveComments(child);
+            }
         }
     }
 }

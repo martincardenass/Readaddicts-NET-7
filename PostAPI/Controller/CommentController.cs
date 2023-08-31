@@ -49,7 +49,7 @@ namespace PostAPI.Controller
         }
 
         [HttpPost("post/{postId}")]
-        // * No authorize because anyone can post comments
+        [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
@@ -80,7 +80,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok("Comment posted");
+            return Ok(new { Ok = "Post created" });
         }
 
         [HttpPatch("update/{commentId}")]

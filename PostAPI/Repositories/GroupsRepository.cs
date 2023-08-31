@@ -28,7 +28,7 @@ namespace PostAPI.Repositories
             return idFromToken == idFromGroup;
         }
 
-        public async Task<bool> CreateGroup(Group group, IFormFile file)
+        public async Task<Group> CreateGroup(Group group, IFormFile file)
         {
             int userId = await _tokenService.ExtractIdFromToken();
 
@@ -53,7 +53,9 @@ namespace PostAPI.Repositories
 
             _context.Add(relation);
 
-            return await _context.SaveChangesAsync() > 0;
+            _ = await _context.SaveChangesAsync() > 0;
+
+            return newGroup;
         }
 
         public async Task<bool> DeleteGroup(Group group)

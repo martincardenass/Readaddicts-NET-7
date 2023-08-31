@@ -78,9 +78,9 @@ namespace PostAPI.Controller
 
                 return BadRequest(errors);
             }
-            bool created = await _groupService.CreateGroup(group, imageFile);
+            var newlyCreatedGroup = await _groupService.CreateGroup(group, imageFile);
 
-            if (!created)
+            if (newlyCreatedGroup == null)
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -89,7 +89,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok(group);
+            return Ok(newlyCreatedGroup);
         }
 
         [HttpPost("Join/{groupId}")]

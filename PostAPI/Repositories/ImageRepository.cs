@@ -34,6 +34,13 @@ namespace PostAPI.Repositories
                 .Where(i => i.Post_Id == postId).ToListAsync();
         }
 
+        public async Task<List<Image>> GetImagesByPostIdNotView(int postId)
+        {
+            return await _context.Images
+                .Where(i => i.Post_Id == postId)
+                .ToListAsync();
+        }
+
         public async Task<bool> PostHasImages(int postId)
         {
             return await _context.Images.AnyAsync(i => i.Post_Id == postId);

@@ -4,6 +4,7 @@ namespace PostAPI.Interfaces
 {
     public interface IPost
     {
+        Task DeleteRecursiveComments(Comment comment);
         Task AddImagesToPost(List<IFormFile> files, int posttId);
         IQueryable<PostView> PostJoinQuery();
         Task<List<PostView>> GetPosts(int page, int pageSize);

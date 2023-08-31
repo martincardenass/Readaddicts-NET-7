@@ -79,14 +79,17 @@ namespace PostAPI.Controller
 
 
         [HttpGet("id/{userId}")]
-        //[Authorize(Policy = "UserAllowed")]
+        [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(User))]
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
+        [ProducesResponseType(401)]
         public async Task<IActionResult> GetUserById(int userId)
         {
             var user = await _userService.GetUserById(userId);
             bool exists = await _userService.UserIdExists(userId);
+
+            if (user == null) return Unauthorized();
 
             if (!exists)
                 return NotFound("User does not exist");

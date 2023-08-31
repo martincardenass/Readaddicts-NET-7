@@ -2,11 +2,11 @@
 
 namespace PostAPI.Repositories
 {
-    public class IdFromToken : IToken
+    public class TokenRepository : IToken
     {
         private readonly IUser _userService;
 
-        public IdFromToken(IUser userService)
+        public TokenRepository(IUser userService)
         {
             _userService = userService;
         }

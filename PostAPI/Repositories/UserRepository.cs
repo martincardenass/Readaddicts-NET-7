@@ -136,7 +136,7 @@ namespace PostAPI.Repositories
                 return await _context.Users.Where(u => u.User_Id == userId).FirstOrDefaultAsync();
 
             else
-                return null; // * Will return 204
+                return null;
         }
 
         public async Task<UserLimitedDto?> GetUserLimited(string username)

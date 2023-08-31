@@ -7,7 +7,7 @@ namespace PostAPI.Interfaces
     {
         IQueryable<GroupView> GroupJoinQuery();
         Task<List<GroupView>> GetGroups();
-        Task<bool> CreateGroup(Group group, IFormFile file);
+        Task<Group> CreateGroup(Group group, IFormFile file);
         Task<bool> UpdateGroup(int groupId, GroupUpdateDto group, IFormFile file);
         Task<bool> DeleteGroup(Group group);
         Task<bool> CompareUserTokenWithGroupId(int groupId);

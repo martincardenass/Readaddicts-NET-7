@@ -108,7 +108,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            return Ok($"{newPostId}");
+            return Ok(newPostId);
         }
 
         [HttpDelete("delete/{id}")]
@@ -136,7 +136,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            return Ok("Post deleted");
+            return Ok(deleted);
         }
 
         [HttpPatch("update/{id}")]

@@ -13,6 +13,7 @@ namespace PostAPI.OptionsSetup
         {
             _jwtOptions = jwtOptions.Value;
         }
+
         public void Configure(JwtBearerOptions options)
         {
             options.TokenValidationParameters = new()

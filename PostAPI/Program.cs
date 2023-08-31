@@ -21,12 +21,6 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
-
-// Jwt Validation options
-builder.Services.ConfigureOptions<JwtOptionsSetup>();
-builder.Services.ConfigureOptions<JwtBearerOptionsSetup>();
-
 // Role based authentication options
 builder.Services.AddAuthorization(options =>
 {
@@ -41,9 +35,15 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+
+// Jwt Validation options
+builder.Services.ConfigureOptions<JwtOptionsSetup>();
+builder.Services.ConfigureOptions<JwtBearerOptionsSetup>();
+
 builder.Services.AddScoped<IUser, UserRepository>();
 builder.Services.AddScoped<IPost, PostRepository>();
-builder.Services.AddScoped<IToken, IdFromToken>();
+builder.Services.AddScoped<IToken, TokenRepository>();
 builder.Services.AddScoped<IComment, CommentRepository>();
 builder.Services.AddScoped<IImage, ImageRepository>();
 builder.Services.AddScoped<IGroups, GroupsRepository>();
