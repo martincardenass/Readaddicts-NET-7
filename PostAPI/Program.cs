@@ -21,25 +21,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
-// Role based authentication options
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy =>
-    {
-        policy.RequireRole("admin"); //policy for admins
-    });
-
-    options.AddPolicy("UserAllowed", policy =>
-    {
-        policy.RequireRole("admin", "user"); //policy for users. However, admins can also do stuff that users do
-    });
-});
-
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
 // Jwt Validation options
 builder.Services.ConfigureOptions<JwtOptionsSetup>();
 builder.Services.ConfigureOptions<JwtBearerOptionsSetup>();
+builder.Services.ConfigureOptions<RoleAuthorizationOptionsSetup>();
 
 builder.Services.AddScoped<IUser, UserRepository>();
 builder.Services.AddScoped<IPost, PostRepository>();
@@ -57,7 +44,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // * Cloudinary
 DotEnv.Load(options: new DotEnvOptions(probeForEnv: true));
-Cloudinary cloudinary = new Cloudinary(Environment.GetEnvironmentVariable("CLOUDINARY_URL"));
+Cloudinary cloudinary = new(Environment.GetEnvironmentVariable("CLOUDINARY_URL"));
 cloudinary.Api.Secure = true;
 
 builder.Services.AddSingleton(cloudinary);

@@ -117,7 +117,7 @@ namespace PostAPI.Controller
         [ProducesResponseType(404)]
         [ProducesResponseType(500)]
         [ProducesResponseType(400)]
-        public async Task<IActionResult> DeletePostAsync(int id)
+        public async Task<IActionResult> DeletePost(int id)
         {
             bool exists = await _postService.IdExists(id);
 
@@ -145,7 +145,7 @@ namespace PostAPI.Controller
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> UpdatePostAsync([FromForm] List<IFormFile?> files, int id, [FromForm] Post post)
+        public async Task<IActionResult> UpdatePost([FromForm] List<IFormFile?> files, int id,  [FromForm] Post post)
         {
             bool exists = await _postService.IdExists(id);
 

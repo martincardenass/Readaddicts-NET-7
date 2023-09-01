@@ -13,10 +13,10 @@ namespace PostAPI.Interfaces
         Task<PostView> GetPostViewById(int id);
         Task<List<PostView>> GetUserPostsByUsername(string username);
         Task<Post> GetPostById(int id);
-        Task<bool> CompareTokenPostId(int  postId);
+        //Task<bool> CompareTokenPostId(int  postId);
         Task<int> CreatePost(List<IFormFile> files, Post post, int? groupId);
         Task<bool> DeletePost(Post post);
-        Task<bool> UpdatePost(List<IFormFile> files, int id, Post post);
+        Task<bool> UpdatePost(List<IFormFile> files, int postId, Post post);
         Task<bool> AddImageToPost(IFormFile file, int postId);
     }
 }

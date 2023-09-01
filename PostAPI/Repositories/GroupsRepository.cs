@@ -22,15 +22,15 @@ namespace PostAPI.Repositories
         {
             var group = await _context.Groups.FindAsync(groupId);
 
-            var idFromToken = await _tokenService.ExtractIdFromToken(); // * Get ID from authorization headers
-            var idFromGroup = group.Group_Owner; // * Group Owner ID
+            var (id, _) = await _tokenService.DecodeHS512Token();
+            var idFromGroup = group.Group_Owner; // * Group Owner Id
 
-            return idFromToken == idFromGroup;
+            return id == idFromGroup;
         }
 
         public async Task<Group> CreateGroup(Group group, IFormFile file)
         {
-            int userId = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             string? groupPictureUrl = await _imageService.UploadProfilePicture(file);
 
@@ -38,7 +38,7 @@ namespace PostAPI.Repositories
             {
                 Group_Name = group.Group_Name,
                 Group_Description = group.Group_Description,
-                Group_Owner = userId, // * User ID from token is the group owner
+                Group_Owner = id, // * User Id from token is the group owner
                 Group_Picture = groupPictureUrl
             };
 
@@ -47,7 +47,7 @@ namespace PostAPI.Repositories
 
             var relation = new GroupsRelations() // * Add the logged in user as a member of the group
             {
-                User_Id = userId,
+                User_Id = id,
                 Group_Id = newGroup.Group_Id
             };
 
@@ -60,7 +60,7 @@ namespace PostAPI.Repositories
 
         public async Task<bool> DeleteGroup(Group group)
         {
-            if(await CompareUserTokenWithGroupId(group.Group_Id))
+            if(await CompareUserTokenWithGroupId(group.Group_Id) && await _tokenService.IsUserAuthorized())
             {
                 var groupToDelete = await _context.Groups.FindAsync(group.Group_Id);
 
@@ -153,44 +153,54 @@ namespace PostAPI.Repositories
 
         public async Task<bool> JoinGroup(int groupId)
         {
-            int userId = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             var group = await GetGroupById(groupId);
 
-            // * Iterate over the users and check if the user its already registered
-            //foreach( var member in group.Members )
-            //{
-            //    if(userId == member.User_Id) return false;
-            //}
-
-            // * Better way without having to save the users into memory
-            bool isUserAlreadyMember = await _context.GroupsRelations
-                .AnyAsync(relation => relation.User_Id == userId && relation.Group_Id == groupId);
-
-            if (isUserAlreadyMember) return false;
-
-            var relation = new GroupsRelations() // * Add the user from the token as a new member for the group
+            if (await _tokenService.IsUserAuthorized())
             {
-                User_Id = userId,
-                Group_Id = groupId
-            };
 
-            _context.Add(relation);
+                // * Iterate over the users and check if the user its already registered
+                //foreach( var member in group.Members )
+                //{
+                //    if(userId == member.User_Id) return false;
+                //}
 
-            return await _context.SaveChangesAsync() > 0;
+                // * Better way without having to save the users into memory
+                bool isUserAlreadyMember = await _context.GroupsRelations
+                    .AnyAsync(relation => relation.User_Id == id && relation.Group_Id == groupId);
+
+                if (isUserAlreadyMember) return false;
+
+                var relation = new GroupsRelations() // * Add the user from the token as a new member for the group
+                {
+                    User_Id = id,
+                    Group_Id = groupId
+                };
+
+                _context.Add(relation);
+
+                return await _context.SaveChangesAsync() > 0;
+            }
+            else return false;
         }
 
         public async Task<bool> LeaveGroup(int groupId)
         {
-            int userId = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
-            var relations = await _context.GroupsRelations
-                .Where(relation => relation.Group_Id == groupId && relation.User_Id == userId)
-                .ToListAsync();
+            if (await _tokenService.IsUserAuthorized())
+            {
+                var relations = await _context.GroupsRelations
+                    .Where(relation => relation.Group_Id == groupId && relation.User_Id == id)
+                    .ToListAsync();
 
-            _context.RemoveRange(relations);
+                _context.RemoveRange(relations);
 
-            return await _context.SaveChangesAsync() > 0;
+                return await _context.SaveChangesAsync() > 0;
+            }
+
+            else return false;
         }
 
         public async Task<bool> UpdateGroup(int groupId, GroupUpdateDto group, IFormFile file)
@@ -198,7 +208,6 @@ namespace PostAPI.Repositories
             if (await CompareUserTokenWithGroupId(groupId))
             {
                 var groupToUpdate = await _context.Groups.FindAsync(groupId);
-
                 string? groupPictureUrl = await _imageService.UploadProfilePicture(file);
 
                 if (groupToUpdate != null)

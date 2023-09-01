@@ -1,11 +1,5 @@
-﻿using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using PostAPI.Interfaces;
+﻿using PostAPI.Interfaces;
 using PostAPI.Models;
-using PostAPI.OptionsSetup;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PostAPI.Dto;
 
@@ -14,25 +8,14 @@ namespace PostAPI.Repositories
     public class UserRepository : IUser
     {
         private readonly AppDbContext _context;
-        private readonly IHttpContextAccessor _http;
         private readonly IImage _imageService;
-        private readonly JwtOptions _options;
+        private readonly IToken _tokenService;
 
-        public UserRepository(AppDbContext context, IHttpContextAccessor http, IOptions<JwtOptions> options, IImage imageService)
+        public UserRepository(AppDbContext context, IImage imageService, IToken tokenService)
         {
             _context = context;
-            _http = http;
             _imageService = imageService;
-            _options = options.Value;
-        }
-
-        public async Task<bool> CheckAdminStatus()
-        {
-            var token = await GetToken();
-            var decoded = await DecodeHS512(token);
-            var role = decoded.role;
-
-            return role == "admin";
+            _tokenService = tokenService;
         }
 
         public async Task<string> CreateUser(User user, IFormFile file)
@@ -63,44 +46,24 @@ namespace PostAPI.Repositories
             _ = await _context.SaveChangesAsync() > 0;
 
             var userToLogin = await GetUser(newUser.Username);
-            var token = JwtTokenGenerator(userToLogin);
+            var token = _tokenService.JwtTokenGenerator(userToLogin);
 
             return token; // * Return the token when we create the user so we can login after creating the user
         }
 
-        public async Task<(int id, string role)> DecodeHS512(string token)
-        {
-            JwtSecurityTokenHandler tokenHandler = new();
-            var jwtToken = tokenHandler.ReadJwtToken(token);
-
-            string idString = jwtToken.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-            _ = int.TryParse(idString, out int id);
-
-            string role = jwtToken.Claims.FirstOrDefault(r => r.Type == "role")?.Value;
-
-            return (id, role);
-        }
-
         public async Task<bool> DeleteUser(int userId)
         {
-            // Injecting tokenService causes circular dependency issue
-            var token = await GetToken();
-            if (token == null) return false;
-
-            var (id, _) = await DecodeHS512(token);
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             var user = await GetUserById(userId);
             if (user == null) return false;
 
-            if(id == userId)
+            if (id == userId && await _tokenService.IsUserAuthorized())
             {
                 _context.Users.Remove(user);
                 return await _context.SaveChangesAsync() > 0;
             }
-            else
-            {
-                return false;
-            }
+            else return false;
         }
 
         public async Task<bool> EmailExists(string email)
@@ -114,12 +77,6 @@ namespace PostAPI.Repositories
             return user?.Password;
         }
 
-        public async Task<string?> GetToken()
-        {
-            string token = _http.HttpContext.Request.Headers.Authorization.ToString();
-            return token.Replace("Bearer", "").Trim();
-        }
-
         public async Task<User> GetUser(string username)
         {
             return await _context.Users.Where(u => u.Username == username).FirstOrDefaultAsync();
@@ -127,19 +84,14 @@ namespace PostAPI.Repositories
 
         public async Task<User> GetUserById(int userId)
         {
-            // * This can only be invoked by the logged in user since it will contain sensitive information
-            var token = await GetToken();
-            if (token == null) return null;
-
-            var (id, _) = await DecodeHS512(token);
-            if (id == userId)
+            var (id, _) = await _tokenService.DecodeHS512Token();
+            if (id == userId && await _tokenService.IsUserAuthorized())
                 return await _context.Users.Where(u => u.User_Id == userId).FirstOrDefaultAsync();
 
-            else
-                return null;
+            else return null;
         }
 
-        public async Task<UserLimitedDto?> GetUserLimited(string username)
+        public async Task<UserLimitedDto> GetUserLimited(string username)
         {
             // * A limited version of the user to store an object in the localstorage
             return await _context.Users
@@ -158,38 +110,9 @@ namespace PostAPI.Repositories
             return await _context.Users.OrderBy(user => user.User_Id).ToListAsync();
         }
 
-        public string JwtTokenGenerator(User user)
+        public async Task<User> UpdateUser(UserUpdateDto user, IFormFile? file)
         {
-            // * Set up the JWT payload
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.User_Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Issuer = _options.Issuer,
-                Audience = _options.Audience,
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddDays(1),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey)), SecurityAlgorithms.HmacSha512Signature)
-            };
-
-            // * Generate the JWT Token
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-
-            return tokenHandler.WriteToken(token);
-        }
-
-        public async Task<User?> UpdateUser(UserUpdateDto user, IFormFile? file)
-        {
-            var token = await GetToken();
-            var (id, _) = await DecodeHS512(token);
+            var (id, _) = await _tokenService.DecodeHS512Token();
             string? hashedPw = null;
 
             if (!string.IsNullOrEmpty(user.Password))
@@ -221,10 +144,7 @@ namespace PostAPI.Repositories
 
                 return existingUser;
             }
-            else
-            {
-                return null;
-            }
+            else return null;
         }
 
         public async Task<bool> UserExists(string username)

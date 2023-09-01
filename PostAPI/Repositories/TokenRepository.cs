@@ -1,22 +1,77 @@
-﻿using PostAPI.Interfaces;
+﻿using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using PostAPI.Interfaces;
+using PostAPI.Models;
+using PostAPI.OptionsSetup;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace PostAPI.Repositories
 {
     public class TokenRepository : IToken
     {
-        private readonly IUser _userService;
+        private readonly IHttpContextAccessor _http;
+        private readonly IOptions<JwtOptions> _options;
 
-        public TokenRepository(IUser userService)
+        public TokenRepository(IHttpContextAccessor http, IOptions<JwtOptions> options)
         {
-            _userService = userService;
+            _http = http;
+            _options = options;
         }
-        public async Task<int> ExtractIdFromToken()
-        {
-            var token = await _userService.GetToken();
-            if (token == null) return 0;
 
-            var (id, _) = await _userService.DecodeHS512(token);
-            return id;
+        public Task<(int id, string role)> DecodeHS512Token()
+        {
+            string token = _http.HttpContext.Request.Headers.Authorization.ToString()
+                .Replace("Bearer", "").Trim();
+
+            if (token == null) return null;
+
+            JwtSecurityTokenHandler tokenHandler = new();
+            var jwtToken = tokenHandler.ReadJwtToken(token);
+
+            string? idString = jwtToken.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+            _ = int.TryParse(idString, out int id);
+
+            string? role = jwtToken.Claims.FirstOrDefault(r => r.Type == "role")?.Value;
+
+            return Task.FromResult((id, role));
+        }
+
+        public async Task<bool> IsUserAuthorized()
+        {
+            var (id, role) = await DecodeHS512Token();
+
+            if (id != 0 || role == "Admin") return true;
+            else return false;
+        }
+
+        public string JwtTokenGenerator(User user)
+        {
+            // * Set up the JWT payload
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.User_Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role)
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Issuer = _options.Value.Issuer,
+                Audience = _options.Value.Audience,
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(7),
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Value.SecretKey)), SecurityAlgorithms.HmacSha512Signature)
+            };
+
+            // * Generate the JWT Token
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
         }
     }
 }

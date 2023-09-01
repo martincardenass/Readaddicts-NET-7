@@ -3,29 +3,24 @@ using Microsoft.Extensions.Options;
 
 namespace PostAPI.OptionsSetup
 {
-    public class RoleAuthorizationOptionsSetup : IConfigureNamedOptions<AuthorizationOptions>
+    public class RoleAuthorizationOptionsSetup : IConfigureOptions<AuthorizationOptions>
     {
-        private readonly IServiceProvider _serviceProvider;
-
-        public RoleAuthorizationOptionsSetup(IServiceProvider serviceProvider)
-        {
-            _serviceProvider = serviceProvider;
-        }
         public void Configure(AuthorizationOptions options)
         {
-            var authorizationOptions = _serviceProvider.GetRequiredService<AuthorizationOptions>();
-            authorizationOptions.AddPolicy("AdminOnly", policy =>
+            // * Role based auth options
+            options.AddPolicy("AdminOnly", policy =>
             {
+                policy.AddAuthenticationSchemes("Bearer");
+                policy.RequireAuthenticatedUser();
                 policy.RequireRole("admin");
             });
 
-            authorizationOptions.AddPolicy("UserAllowed", policy =>
+            options.AddPolicy("UserAllowed", policy =>
             {
+                policy.AddAuthenticationSchemes("Bearer");
+                policy.RequireAuthenticatedUser();
                 policy.RequireRole("admin", "user");
             });
-
         }
-
-        public void Configure(string? name, AuthorizationOptions options) => Configure(options);
     }
 }

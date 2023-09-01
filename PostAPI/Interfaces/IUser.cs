@@ -15,10 +15,6 @@ namespace PostAPI.Interfaces
         Task<bool> UserExists(string username);
         Task<bool> UserIdExists(int userId);
         Task<bool> EmailExists(string email);
-        string JwtTokenGenerator(User user);
         Task<string> GetHashedPassword(string username);
-        Task<bool> CheckAdminStatus();
-        Task<string> GetToken();
-        Task<(int id, string role)> DecodeHS512(string token);
     }
 }

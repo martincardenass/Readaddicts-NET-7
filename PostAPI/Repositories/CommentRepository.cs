@@ -8,15 +8,11 @@ namespace PostAPI.Repositories
     {
         private readonly AppDbContext _context;
         private readonly IToken _tokenService;
-        private readonly IHttpContextAccessor _http;
-        private readonly IUser _userService;
 
-        public CommentRepository(AppDbContext context, IToken tokenService, IHttpContextAccessor http, IUser userService)
+        public CommentRepository(AppDbContext context, IToken tokenService)
         {
             _context = context;
             _tokenService = tokenService;
-            _http = http;
-            _userService = userService;
         }
 
         public IQueryable<CommentView> CommentJoinQuery()
@@ -73,34 +69,18 @@ namespace PostAPI.Repositories
             return await _context.Comments.AnyAsync(i => i.Comment_Id == commentId);
         }
 
-        public async Task<bool> ComparedTokenCommentId(int commentId)
-        {
-            var comment = await _context.Comments.FindAsync(commentId);
-
-            var idFromToken = await _tokenService.ExtractIdFromToken();
-            var idFromComment = comment.User_Id;
-
-            return idFromToken == idFromComment;
-        }
-
         public async Task<bool> CreateComment(int postId, int parentCommentId, Comment comment)
         {
-            // * If no token string is provided: comment will be anonymous
-            string token = _http.HttpContext.Request.Headers.Authorization.ToString();
-            int? userId = null;
-
-            if (!string.IsNullOrEmpty(token))
-                userId = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             var newComment = new Comment()
             {
-                User_Id = userId, // * If UserId field has value
+                User_Id = id, // * If UserId field has value
                 Parent_Comment_Id = parentCommentId == 0 ? null : parentCommentId,
-                Anonymous = userId == null,
+                Anonymous = id == null,
                 Post_Id = postId,
                 Content = comment.Content,
                 Created = DateTime.UtcNow,
-                // Modified = null // Not necessary on comment creation
             };
 
             _context.Add(newComment);
@@ -109,20 +89,17 @@ namespace PostAPI.Repositories
 
         public async Task<bool> DeleteComment(Comment comment)
         {
-            var toDelete = await _context.Comments.FindAsync(comment.Comment_Id);
+            var commentToDelete = await _context.Comments.FindAsync(comment.Comment_Id);
+            if (commentToDelete == null) return false;
 
-            var comparasion = await ComparedTokenCommentId(comment.Comment_Id);
-            var admin = await _userService.CheckAdminStatus();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
-            if(comparasion || admin)
+            if (id == comment.User_Id && await _tokenService.IsUserAuthorized())
             {
-                _context.Comments.Remove(toDelete);
+                _context.Comments.Remove(commentToDelete);
                 return await _context.SaveChangesAsync() > 0;
             }
-            else
-            {
-                return false;
-            }
+            else return false;
         }
 
         public async Task<List<CommentView>> GetChildCommentsById(int commentId, List<CommentView> allComments)
@@ -244,9 +221,12 @@ namespace PostAPI.Repositories
 
         public async Task<bool> UpdateComment(int commentId, Comment comment)
         {
-            var comparasion = await ComparedTokenCommentId(commentId);
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
-            if(comparasion)
+            var commentToUpdate = await _context.Comments.FindAsync(commentId);
+            if (commentToUpdate == null) return false;
+
+            if (id == commentToUpdate.User_Id && await _tokenService.IsUserAuthorized())
             {
                 var existingComment = await _context.Comments.FindAsync(commentId);
 
@@ -259,10 +239,7 @@ namespace PostAPI.Repositories
                 _context.Update(existingComment);
                 return await _context.SaveChangesAsync() > 0;
             }
-            else
-            {
-                return false;
-            }
+            else return false;
         }
 
         public async Task<List<CommentView>> RecursiveComments(CommentView parentComment, List<CommentView> comments)

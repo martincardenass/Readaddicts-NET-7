@@ -7,15 +7,13 @@ namespace PostAPI.Repositories
     public class PostRepository : IPost
     {
         private readonly AppDbContext _context;
-        private readonly IUser _userService;
         private readonly IToken _tokenService;
         private readonly IComment _commentService;
         private readonly IImage _imageService;
 
-        public PostRepository(AppDbContext context, IUser userService, IToken tokenService, IComment commentService, IImage imageService)
+        public PostRepository(AppDbContext context, IToken tokenService, IComment commentService, IImage imageService)
         {
             _context = context;
-            _userService = userService;
             _tokenService = tokenService;
             _commentService = commentService;
             _imageService = imageService;
@@ -29,19 +27,19 @@ namespace PostAPI.Repositories
 
         public async Task<int> CreatePost(List<IFormFile> files, Post post, int? groupId)
         {
-            int userId = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             // * Check if the group exists
             var findGroup = await _context.Groups.FindAsync(groupId);// * Return 0 will cause 500 server error
 
             // * Get the relations of the same groupId
-            var relation = await _context.GroupsRelations.Where(g => g.Group_Id == groupId && g.User_Id == userId).FirstOrDefaultAsync();
+            var relation = await _context.GroupsRelations.Where(g => g.Group_Id == groupId && g.User_Id == id).FirstOrDefaultAsync();
 
-            if (findGroup != null && relation.User_Id == userId)
+            if (findGroup != null && relation.User_Id == id)
             {
                 var newPostWithGroup = new Post()
                 {
-                    User_Id = userId,
+                    User_Id = id,
                     Created = DateTime.UtcNow,
                     Content = post.Content,
                     Group_Id = groupId    
@@ -55,13 +53,12 @@ namespace PostAPI.Repositories
 
                 return newPostWithGroup.Post_Id;
             }
-
             // * If no groupId is provided, groupId will be equal to null; meaning the post does not have a group. Then just create a normal post
             else
             {
                 var newPostWithoutGroup = new Post()
                 {
-                    User_Id = userId,
+                    User_Id = id,
                     Created = DateTime.UtcNow,
                     Content = post.Content,
                     Group_Id = null // * No group
@@ -79,23 +76,20 @@ namespace PostAPI.Repositories
 
         public async Task<bool> DeletePost(Post post)
         {
-            var toDelete = await _context.Posts.FindAsync(post.Post_Id);
+            var postToDelete = await _context.Posts.FindAsync(post.Post_Id);
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
-            var comparasion = await CompareTokenPostId(post.Post_Id);
-            var admin = await _userService.CheckAdminStatus();
-
-            if (comparasion == true || admin)
+            if (postToDelete.User_Id == id && await _tokenService.IsUserAuthorized())
             {
                 var comments = await _commentService.GetComments(post.Post_Id);
 
-                if(comments.Count > 0)
+                if (comments.Count > 0)
                 {
                     var childComments = comments
                         .Where(comment => comment.Parent_Comment_Id.HasValue)
                         .OrderByDescending(comment => comment.Parent_Comment_Id)
                         .ToList();
 
-                    
                     foreach (var comment in childComments)
                     {
                         _context.Remove(comment);
@@ -114,25 +108,20 @@ namespace PostAPI.Repositories
                 if (images.Count > 0)
                     _context.RemoveRange(images);
 
-                _context.Posts.Remove(toDelete);
+                _context.Posts.Remove(postToDelete);
 
                 return await _context.SaveChangesAsync() > 0;
             }
-            else
-            {
-                return false;
-            }
+            else return false;
         }
 
-        public async Task<bool> UpdatePost(List<IFormFile> files, int id, Post post)
+        public async Task<bool> UpdatePost(List<IFormFile> files, int postId, Post post)
         {
-            var comparasion = await CompareTokenPostId(id);
-            var admin = await _userService.CheckAdminStatus();
+            var (id, _) = await _tokenService.DecodeHS512Token();
+            var existingPost = await _context.Posts.FindAsync(postId);
 
-            if (comparasion || admin)
+            if (existingPost.User_Id == id && await _tokenService.IsUserAuthorized())
             {
-                var existingPost = await _context.Posts.FindAsync(id);
-
                 if (existingPost == null)
                     return false;
 
@@ -148,20 +137,7 @@ namespace PostAPI.Repositories
 
                 return true;
             }
-            else
-            {
-                return false;
-            }
-        }
-
-        public async Task<bool> CompareTokenPostId(int postId)
-        {
-            var post = await _context.Posts.FindAsync(postId);
-
-            var idFromToken = await _tokenService.ExtractIdFromToken();
-            var idFromPost = post.User_Id;
-
-            return idFromToken == idFromPost;
+            else return false;
         }
 
         public async Task<PostView> GetPostViewById(int id)
@@ -242,12 +218,12 @@ namespace PostAPI.Repositories
         {
             string? imageUrl = await _imageService.UploadImage(file);
 
-            var Id = await _tokenService.ExtractIdFromToken();
+            var (id, _) = await _tokenService.DecodeHS512Token();
 
             var newImage = new Image
             {
                 Post_Id = postId,
-                User_Id = Id,
+                User_Id = id,
                 Image_Url = imageUrl
             };
 
@@ -264,13 +240,13 @@ namespace PostAPI.Repositories
 
         public async Task DeleteRecursiveComments(Comment comment)
         {
-            var childComments = _context.Comments
+            var childComments = await _context.Comments
                 .Where(c => c.Parent_Comment_Id == comment.Parent_Comment_Id)
-                .ToList();
+                .ToListAsync();
 
             foreach (var child in childComments)
             {
-                DeleteRecursiveComments(child);
+                await DeleteRecursiveComments(child);
             }
         }
     }

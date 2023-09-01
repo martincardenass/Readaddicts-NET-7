@@ -13,12 +13,14 @@ namespace PostAPI.Controller
         private readonly IUser _userService;
         private readonly IPost _postService;
         private readonly IComment _commentService;
+        private readonly IToken _tokenService;
 
-        public UserController(IUser userService, IPost postService, IComment commentService)
+        public UserController(IUser userService, IPost postService, IComment commentService, IToken tokenService)
         {
             _userService = userService;
             _postService = postService;
             _commentService = commentService;
+            _tokenService = tokenService;
         }
 
         [HttpGet]
@@ -235,7 +237,7 @@ namespace PostAPI.Controller
 
             var userLimited = await _userService.GetUserLimited(user.Username);
 
-            var token = _userService.JwtTokenGenerator(userLogin);
+            var token = _tokenService.JwtTokenGenerator(userLogin);
 
             return Ok(new { Token = token, User = userLimited });
         }
