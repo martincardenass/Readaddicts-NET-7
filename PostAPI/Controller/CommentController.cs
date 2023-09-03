@@ -69,9 +69,9 @@ namespace PostAPI.Controller
                 return BadRequest(errors);
             }
 
-            bool created = await _commentService.CreateComment(postId, parentCommentId, comment);
+            int newCommentId = await _commentService.CreateComment(postId, parentCommentId, comment);
 
-            if (!created)
+            if (newCommentId == 0)
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -80,7 +80,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return Ok(new { Ok = "Post created" });
+            return Ok(newCommentId);
         }
 
         [HttpPatch("update/{commentId}")]

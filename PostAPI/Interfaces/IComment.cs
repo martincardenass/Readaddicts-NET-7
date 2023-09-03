@@ -12,7 +12,7 @@ namespace PostAPI.Interfaces
         Task<List<CommentView>> GetCommentsByPostId(int postId); // * This isnt actually the view
         Task<List<Comment>> GetComments(int postId); // * This is to delete the comments when deleting the post
         Task<List<CommentView>> GetCommentsByUsername(string username);
-        Task<bool> CreateComment(int postId, int parentCommentId, Comment comment);
+        Task<int> CreateComment(int postId, int parentCommentId, Comment comment);
         Task<bool> UpdateComment(int commentId, Comment comment);
         Task<bool> DeleteComment(Comment comment);
     }

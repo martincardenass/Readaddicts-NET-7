@@ -69,7 +69,7 @@ namespace PostAPI.Repositories
             return await _context.Comments.AnyAsync(i => i.Comment_Id == commentId);
         }
 
-        public async Task<bool> CreateComment(int postId, int parentCommentId, Comment comment)
+        public async Task<int> CreateComment(int postId, int parentCommentId, Comment comment)
         {
             var (id, _) = await _tokenService.DecodeHS512Token();
 
@@ -84,7 +84,9 @@ namespace PostAPI.Repositories
             };
 
             _context.Add(newComment);
-            return await _context.SaveChangesAsync() > 0;
+            _ = await _context.SaveChangesAsync() > 0;
+
+            return newComment.Comment_Id;
         }
 
         public async Task<bool> DeleteComment(Comment comment)

@@ -161,7 +161,6 @@ namespace PostAPI.Controller
         [HttpDelete("Delete/{groupId}")]
         [ProducesResponseType(200)]
         [ProducesResponseType(404)]
-        [ProducesResponseType(204)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
         public async Task<IActionResult> DeleteGroup(int groupId)
@@ -181,7 +180,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            return NoContent();
+            return Ok(new { Ok = "Group deleted success" });
         }
     }
 }
