@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using PostAPI.Dto;
 using PostAPI.Interfaces;
 using PostAPI.Models;
 
@@ -140,10 +142,35 @@ namespace PostAPI.Repositories
             else return false;
         }
 
-        public async Task<PostView> GetPostViewById(int id)
+        public async Task<PostView?> GetPostViewById(int postId)
         {
-            return await PostJoinQuery()
-                .FirstOrDefaultAsync(p => p.Post_Id == id);
+            // * Load only the group_Id into memory. This way we dont save the whole post into the memory if the user its not authenticated to see the post
+            var group_Id = await _context.Posts
+                .Where(p => p.Post_Id == postId)
+                .Select(p => p.Group_Id)
+                .FirstOrDefaultAsync();
+
+            if (!group_Id.HasValue)
+                return await PostJoinQuery()
+                    .FirstOrDefaultAsync(p => p.Post_Id == postId);
+
+            // * If groupId , its a group post and needs authentication to see it
+            if (group_Id.HasValue)
+            {
+                if (await CheckIfUserIsAGroupMember(group_Id.Value) && await _tokenService.IsUserAuthorized())
+                    return await PostJoinQuery()
+                        .FirstOrDefaultAsync(p => p.Post_Id == postId);
+
+                else return new PostView
+                {
+                    Content = "Sorry, you are not allowed to see this post at this moment.",
+                    Group = await _context.Groups
+                        .Where(g => g.Group_Id == group_Id)
+                        .FirstOrDefaultAsync(),
+                    Allowed = false // * Not allowed to see the post. Used to handle conditional rendering in the frontend
+                };
+            }
+            else return null;
         }
 
         public async Task<List<PostView>> GetPosts(int page, int pageSize)
@@ -163,11 +190,14 @@ namespace PostAPI.Repositories
                 .FirstOrDefaultAsync(p => p.Post_Id == id);
         }
 
-        public async Task<List<PostView>> GetUserPostsByUsername(string username)
+        public async Task<List<PostView>> GetUserPostsByUsername(int page, int pageSize, string username)
         {
+            int postsToSkip = (page - 1) * pageSize;
             return await PostJoinQuery()
-                .OrderByDescending(p => p.Created)
                 .Where(p => p.Author == username)
+                .OrderByDescending(p => p.Created)
+                .Skip(postsToSkip)
+                .Take(pageSize)
                 .ToListAsync();
         }
 
@@ -199,7 +229,9 @@ namespace PostAPI.Repositories
                     Profile_Picture = result != null ? result.post.user.Profile_Picture : "No picture",
                     Comments = result.CommentCount,
                     Group_Id = result.post.post.Group_Id,
-                    Images = _context.Images.Where(image => image.Post_Id == result.post.post.Post_Id).ToList()
+                    Group = _context.Groups.FirstOrDefault(g => g.Group_Id == result.post.post.Group_Id),
+                    Images = _context.Images.Where(image => image.Post_Id == result.post.post.Post_Id).ToList(),
+                    Allowed = true // * Every method that uses PostJoinQuery its allowed to see the content of the post
                 });
         }
 
@@ -231,13 +263,6 @@ namespace PostAPI.Repositories
             return await _context.SaveChangesAsync() > 0;
         }
 
-        public async Task<List<PostView>> GetPostsByGroupId(int groupId)
-        {
-            return await PostJoinQuery()
-                .Where(g => g.Group_Id == groupId)
-                .ToListAsync();
-        }
-
         public async Task DeleteRecursiveComments(Comment comment)
         {
             var childComments = await _context.Comments
@@ -248,6 +273,16 @@ namespace PostAPI.Repositories
             {
                 await DeleteRecursiveComments(child);
             }
+        }
+
+        public async Task<bool> CheckIfUserIsAGroupMember(int groupId)
+        {
+            // * Extract userId from the auth headers (for the logged user)
+            var (id, _) = await _tokenService.DecodeHS512Token();
+            // * Create a list of all the relations table of the desired group. This will throw all of the members IDs that belong to the desired group
+            var groupRelationships = await _context.GroupsRelations.Where(g => g.Group_Id == groupId).ToListAsync();
+            // * Then we check if at least any of those user IDs match the userId that was extracted from the token, if they do it mens the user its a member of the desired group
+            return groupRelationships.Any(user => user.User_Id == id);
         }
     }
 }

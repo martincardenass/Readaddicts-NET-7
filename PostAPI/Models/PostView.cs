@@ -19,5 +19,9 @@ namespace PostAPI.Models
         public int? Comments { get; set; }
         public int? Group_Id { get; set; }
         public ICollection<Image> Images { get; set; }
+        public Group Group { get; set; }
+        // * Used to track if user its allowed to see the post
+        // * Ex: if not a group member Allowed will be falsy
+        public bool Allowed { get; set; }
     }
 }

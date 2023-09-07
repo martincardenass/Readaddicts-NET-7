@@ -19,12 +19,12 @@ namespace PostAPI.Controller
         [HttpGet("{postId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
         [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
+        //[ProducesResponseType(404)]
         public async Task<IActionResult> GetCommentsByPostId(int postId)
         {
             var comments = await _commentService.GetCommentsByPostId(postId);
 
-            if (comments.Count == 0) return NotFound("Seems like this post has no comments yet.");
+            if (comments.Count == 0) return NoContent();
 
             if (!ModelState.IsValid)
                 return BadRequest();

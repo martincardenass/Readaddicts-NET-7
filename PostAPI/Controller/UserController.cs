@@ -141,16 +141,16 @@ namespace PostAPI.Controller
         [ProducesResponseType(200, Type = typeof(IEnumerable<Post>))]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
-        public async Task<IActionResult> GetPostsByUserId(string username)
+        public async Task<IActionResult> GetPostsByUserId(int page, int pageSize, string username)
         {
-            var posts = await _postService.GetUserPostsByUsername(username);
+            var posts = await _postService.GetUserPostsByUsername(page, pageSize, username);
 
             bool userExists = await _userService.UserExists(username);
 
             if (!userExists)
                 return NotFound($"User with username {username} does not exist");
 
-            if(posts.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not posted anything yet.");
+            //if(posts.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not posted anything yet.");
 
             if (!ModelState.IsValid)
                 return BadRequest();
@@ -162,16 +162,16 @@ namespace PostAPI.Controller
         [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
-        public async Task<IActionResult> GetCommentsByUserId(string username)
+        public async Task<IActionResult> GetCommentsByUserId(int page, int pageSize, string username)
         {
-            var comments = await _commentService.GetCommentsByUsername(username);
+            var comments = await _commentService.GetCommentsByUsername(page, pageSize, username);
 
             bool userExists = await _userService.UserExists(username);
 
             if (!userExists)
                 return NotFound($"User with username {username} does not exist");
 
-            if (comments.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not commented anything yet.");
+            //if (comments.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not commented anything yet.");
 
             if (!ModelState.IsValid)
                 return BadRequest();

@@ -35,16 +35,16 @@ namespace PostAPI.Controller
         }
 
 
-        [HttpGet("{id}")]
+        [HttpGet("{postId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
         [ProducesResponseType(404)]
         [ProducesResponseType(400)]
-        public async Task<IActionResult> GetPostViewById(int id)
+        public async Task<IActionResult> GetPostViewById(int postId)
         {
-            var post = await _postService.GetPostViewById(id);
+            var post = await _postService.GetPostViewById(postId);
 
-            bool exists = await _postService.IdExists(id);
-            if(!exists) return NotFound($"The post with ID {id} does not exist");
+            bool exists = await _postService.IdExists(postId);
+            if(!exists) return NotFound($"The post with ID {postId} does not exist");
 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -63,16 +63,6 @@ namespace PostAPI.Controller
                 return BadRequest(ModelState);
 
             return Ok(images);
-        }
-
-        [HttpGet("Group/{groupId}")]
-        [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
-        [ProducesResponseType(400)]
-        public async Task<IActionResult> GetPostsByGroupId(int groupId)
-        {
-            var posts = await _postService.GetPostsByGroupId(groupId);
-
-            return Ok(posts);
         }
 
         [HttpPost]

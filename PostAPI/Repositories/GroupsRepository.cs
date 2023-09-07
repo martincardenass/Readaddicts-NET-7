@@ -10,12 +10,14 @@ namespace PostAPI.Repositories
         private readonly AppDbContext _context;
         private readonly IToken _tokenService;
         private readonly IImage _imageService;
+        private readonly IPost _postService;
 
-        public GroupsRepository(AppDbContext context, IToken tokenService, IImage imageService)
+        public GroupsRepository(AppDbContext context, IToken tokenService, IImage imageService, IPost postService)
         {
             _context = context;
             _tokenService = tokenService;
             _imageService = imageService;
+            _postService = postService;
         }
 
         public async Task<bool> CompareUserTokenWithGroupId(int groupId)
@@ -49,7 +51,7 @@ namespace PostAPI.Repositories
             {
                 User_Id = id,
                 Group_Id = newGroup.Group_Id
-            };
+            }; 
 
             _context.Add(relation);
 
@@ -60,31 +62,33 @@ namespace PostAPI.Repositories
 
         public async Task<bool> DeleteGroup(Group group)
         {
-            if(await CompareUserTokenWithGroupId(group.Group_Id) && await _tokenService.IsUserAuthorized())
+            if (await CompareUserTokenWithGroupId(group.Group_Id) && await _tokenService.IsUserAuthorized())
             {
                 var groupToDelete = await _context.Groups.FindAsync(group.Group_Id);
 
-                // * Get all the relations so we can delete them as well
                 var relations = await _context.GroupsRelations.Where(g => g.Group_Id == group.Group_Id).ToListAsync();
 
-                if(relations.Count > 0)
+                var posts = await _context.Posts.Where(g => g.Group_Id == group.Group_Id).ToListAsync();
+
+                // * Remove posts and their respective images and comments (everything!)
+                if(posts.Count > 0)
                 {
-                    foreach(var relation in relations)
+                    foreach(var post in posts)
                     {
-                        // * Iterate and delete every relation
-                        _context.GroupsRelations.Remove(relation);
+                        _ = await _postService.DeletePost(post);
                         _ = await _context.SaveChangesAsync() > 0;
                     }
                 }
 
-                _context.Groups.Remove(group);
+                // * Remove members of the group
+                if (relations.Count > 0) _context.GroupsRelations.RemoveRange(relations);
+                _ = await _context.SaveChangesAsync() > 0;
 
+                // * Remove the group itself
+                _context.Groups.Remove(group);
                 return await _context.SaveChangesAsync() > 0;
             }
-            else
-            {
-                return false;
-            }
+            else return false;
         }
 
         public async Task<GroupView> GetGroupById(int groupId)
@@ -100,6 +104,26 @@ namespace PostAPI.Repositories
         public async Task<List<GroupView>> GetGroups()
         {
             return await GroupJoinQuery().OrderBy(g => g.Group_Id).ToListAsync();
+        }
+
+        public async Task<List<PostView>?> GetPostsByGroupId(int groupId)
+        {
+            var (id, _) = await _tokenService.DecodeHS512Token();
+
+            var group = await GetGroupById(groupId);
+
+            bool isUserMember = group.Members
+                .Any(member => member.User_Id == id);
+
+            bool isUserAdmin = group.Owner.User_Id == id;
+
+            if (isUserMember || isUserAdmin)
+            {
+                return await _postService.PostJoinQuery()
+                    .Where(g => g.Group_Id == groupId)
+                    .OrderByDescending(post => post.Created)
+                    .ToListAsync();
+            } else return null;
         }
 
         public async Task<bool> GroupExists(string groupName)
@@ -127,7 +151,7 @@ namespace PostAPI.Repositories
                     (grouped, users) => new
                     {
                         Group = grouped.group,
-                        Members = users.ToList(),
+                        Members = users.Where(u => u.User_Id != grouped.group.Group_Owner),
                         Owner = users.Where(u => u.User_Id == grouped.Relations.User_Id).FirstOrDefault()
                     })
                 .GroupBy(grouped => new // * Group the results by a composite key
@@ -145,7 +169,7 @@ namespace PostAPI.Repositories
                     Group_Picture = grouped.Key.Group_Picture,
                     Owner = grouped.Select(g => g.Owner).FirstOrDefault(),
                     Members_Count = grouped.SelectMany(count => count.Members).Count(),
-                    Members = grouped.SelectMany(g => g.Members).ToList()       
+                    Members = grouped.SelectMany(g => g.Members).ToList()
                 });
 
             return groups;

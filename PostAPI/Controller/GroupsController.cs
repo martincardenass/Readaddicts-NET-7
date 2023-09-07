@@ -46,6 +46,17 @@ namespace PostAPI.Controller
             return Ok(group);
         }
 
+        [HttpGet("Posts/{groupId}")]
+        [Authorize(Policy = "UserAllowed")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetPostsByGroupId(int groupId)
+        {
+            var posts = await _groupService.GetPostsByGroupId(groupId);
+
+            return Ok(posts);
+        }
+
         [HttpPost("Validator/GroupExists/{groupName}")]
         [ProducesResponseType(200)]
         public async Task<IActionResult> ValidateIfGroupExists(string groupName)
@@ -121,7 +132,6 @@ namespace PostAPI.Controller
         [HttpPatch("Update/{groupId}")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
-        [ProducesResponseType(204)]
         [ProducesResponseType(400)]
         [ProducesResponseType(500)]
         public async Task<IActionResult> UpdateGroup(int groupId, [FromForm] GroupUpdateDto group, [FromForm] IFormFile? imageFile)
@@ -155,7 +165,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            return NoContent();
+            return Ok(new { Ok = "Group updated" });
         }
 
         [HttpDelete("Delete/{groupId}")]

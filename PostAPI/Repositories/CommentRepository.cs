@@ -157,9 +157,10 @@ namespace PostAPI.Repositories
             return parentComments; // * Returning the parent Comments only.
         }
 
-        public async Task<List<CommentView>> GetCommentsByUsername(string username)
+        public async Task<List<CommentView>> GetCommentsByUsername(int page, int pageSize, string username)
         {
-            var comments = await 
+            int postsToSkip = (page - 1) * pageSize;
+            var comments = await
                 _context.Comments
                 .GroupJoin(
                     _context.Users,
@@ -169,7 +170,7 @@ namespace PostAPI.Repositories
                 .SelectMany(result => result.user.DefaultIfEmpty(), (comment, user) => new CommentView
                 {
                     Comment_Id = comment.comment.Comment_Id,
-                    User_Id = comment.comment.User_Id, 
+                    User_Id = comment.comment.User_Id,
                     Post_Id = comment.comment.Post_Id,
                     Parent_Comment_Id = comment.comment.Parent_Comment_Id,
                     Content = comment.comment.Content,
@@ -179,7 +180,12 @@ namespace PostAPI.Repositories
                     Author = user == null ? "Anonymous" : user.Username,
                     Profile_Picture = user.Profile_Picture
                 })
-                .OrderByDescending(p => p.Created).Where(c => c.Author == username).ToListAsync();
+                .Where(comment => comment.Parent_Comment_Id == null)
+                .OrderByDescending(p => p.Created).Where(c => c.Author == username)
+                .Skip(postsToSkip)
+                .Take(pageSize)
+                .ToListAsync();
+                
 
             var additionalComments = new List<CommentView>();
 
