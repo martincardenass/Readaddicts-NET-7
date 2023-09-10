@@ -20,16 +20,9 @@ namespace PostAPI.Controller
 
         [HttpGet("allposts")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetPosts(int page, int pageSize)
         {
             var posts = await _postService.GetPosts(page, pageSize);
-
-            // * Not returning any response when we reach a page that has no posts. Just return an empty array[] (200 response tho).
-            // * It was causing issues with the appending in the frontend. There might be still a solution but this works just fine (by now!)
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok(posts);
         }
@@ -38,7 +31,6 @@ namespace PostAPI.Controller
         [HttpGet("{postId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
         [ProducesResponseType(404)]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetPostViewById(int postId)
         {
             var post = await _postService.GetPostViewById(postId);
@@ -46,21 +38,14 @@ namespace PostAPI.Controller
             bool exists = await _postService.IdExists(postId);
             if(!exists) return NotFound($"The post with ID {postId} does not exist");
 
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             return Ok(post);
         }
 
         [HttpGet("{id}/images")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<ImageView>))]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetImagesByPostId(int id)
         {
             var images = await _imageService.GetImagesByPostId(id);
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok(images);
         }
@@ -106,7 +91,6 @@ namespace PostAPI.Controller
         [ProducesResponseType(200)]
         [ProducesResponseType(404)]
         [ProducesResponseType(500)]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> DeletePost(int id)
         {
             bool exists = await _postService.IdExists(id);
@@ -122,9 +106,6 @@ namespace PostAPI.Controller
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
             }
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok(deleted);
         }

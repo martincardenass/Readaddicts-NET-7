@@ -25,7 +25,6 @@ namespace PostAPI.Controller
 
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(IEnumerable<User>))]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetUsers()
         {
             var users = await _userService.GetUsers();
@@ -50,9 +49,6 @@ namespace PostAPI.Controller
 
                 usersDto.Add(newUsers);
             }
-
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(usersDto);
         }
@@ -84,7 +80,6 @@ namespace PostAPI.Controller
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(User))]
         [ProducesResponseType(404)]
-        [ProducesResponseType(400)]
         [ProducesResponseType(401)]
         public async Task<IActionResult> GetUserById(int userId)
         {
@@ -95,9 +90,6 @@ namespace PostAPI.Controller
 
             if (!exists)
                 return NotFound("User does not exist");
-                
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(user);
         }
@@ -105,7 +97,6 @@ namespace PostAPI.Controller
         [HttpGet("username/{username}")]
         [ProducesResponseType(200, Type = typeof(User))]
         [ProducesResponseType(404)]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetUserByUsername(string username)
         {
             var user = await _userService.GetUser(username);
@@ -131,15 +122,11 @@ namespace PostAPI.Controller
                 Last_Login = user.Last_Login
             };
 
-            if (!ModelState.IsValid)
-                return BadRequest();
-
             return Ok(userDto);
         }
 
         [HttpGet("{username}/posts")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<Post>))]
-        [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetPostsByUserId(int page, int pageSize, string username)
         {
@@ -150,17 +137,11 @@ namespace PostAPI.Controller
             if (!userExists)
                 return NotFound($"User with username {username} does not exist");
 
-            //if(posts.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not posted anything yet.");
-
-            if (!ModelState.IsValid)
-                return BadRequest();
-
             return Ok(posts);
         }
 
         [HttpGet("{username}/comments")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
-        [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetCommentsByUserId(int page, int pageSize, string username)
         {
@@ -170,11 +151,6 @@ namespace PostAPI.Controller
 
             if (!userExists)
                 return NotFound($"User with username {username} does not exist");
-
-            //if (comments.Count == 0) return NotFound($"Seems like {char.ToUpper(username[0]) + username[1..]} has not commented anything yet.");
-
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(comments);
         }
@@ -233,11 +209,13 @@ namespace PostAPI.Controller
 
             if(!ModelState.IsValid) return BadRequest(ModelState);
 
-            var userLogin = await _userService.GetUser(user.Username);
+            var (token, userLimited) = await _userService.LoginUser(user);
 
-            var userLimited = await _userService.GetUserLimited(user.Username);
-
-            var token = _tokenService.JwtTokenGenerator(userLogin);
+            if (token == null || userLimited == null)
+            {
+                ModelState.AddModelError("", "Something went wrong");
+                return StatusCode(500, ModelState);
+            }
 
             return Ok(new { Token = token, User = userLimited });
         }
@@ -280,7 +258,6 @@ namespace PostAPI.Controller
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200)]
         [ProducesResponseType(500)]
-        [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> DeleteUser(int id)
         {
@@ -289,8 +266,6 @@ namespace PostAPI.Controller
             if (!exists)
                 return NotFound("This user does not exist or has already been deleted");
 
-            var user = await _userService.GetUserById(id);
-
             bool deleted = await _userService.DeleteUser(id);
 
             if (!deleted)
@@ -298,9 +273,6 @@ namespace PostAPI.Controller
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
             }
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok("User deleted");
         }

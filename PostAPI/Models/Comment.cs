@@ -9,7 +9,7 @@ namespace PostAPI.Models
         [Key]
         public int Comment_Id { get; set; }
         [ForeignKey("Users")]
-        public int? User_Id { get; set; } // Comments can be anonymus. Thats why its nullable ?
+        public int? User_Id { get; set; }
         [ForeignKey("Posts")]
         public int Post_Id { get; set; }
         [ForeignKey("Comments")]

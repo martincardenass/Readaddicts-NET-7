@@ -53,7 +53,7 @@ namespace PostAPI.Repositories
 
         public async Task<bool> DeleteUser(int userId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var user = await GetUserById(userId);
             if (user == null) return false;
@@ -84,7 +84,7 @@ namespace PostAPI.Repositories
 
         public async Task<User> GetUserById(int userId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
             if (id == userId && await _tokenService.IsUserAuthorized())
                 return await _context.Users.Where(u => u.User_Id == userId).FirstOrDefaultAsync();
 
@@ -110,9 +110,26 @@ namespace PostAPI.Repositories
             return await _context.Users.OrderBy(user => user.User_Id).ToListAsync();
         }
 
+        public async Task<(string token, UserLimitedDto userLimited)> LoginUser(UserDto user)
+        {
+            var userLogin = await GetUser(user.Username);
+
+            var userLimited = await GetUserLimited(user.Username); // * This is what we will return to the user
+
+            var token = _tokenService.JwtTokenGenerator(userLogin);
+
+            if(token != null && userLogin != null)
+            {
+                userLogin.Last_Login = DateTime.UtcNow;
+                _ = await _context.SaveChangesAsync();
+            }
+
+            return (token, userLimited);
+        }
+
         public async Task<User> UpdateUser(UserUpdateDto user, IFormFile? file)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
             string? hashedPw = null;
 
             if (!string.IsNullOrEmpty(user.Password))

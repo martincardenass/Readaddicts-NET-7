@@ -16,5 +16,6 @@ namespace PostAPI.Interfaces
         Task<bool> UserIdExists(int userId);
         Task<bool> EmailExists(string email);
         Task<string> GetHashedPassword(string username);
+        Task<(string token, UserLimitedDto userLimited)> LoginUser(UserDto user);
     }
 }

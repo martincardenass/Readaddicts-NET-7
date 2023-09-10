@@ -19,6 +19,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
@@ -34,6 +35,7 @@ builder.Services.AddScoped<IToken, TokenRepository>();
 builder.Services.AddScoped<IComment, CommentRepository>();
 builder.Services.AddScoped<IImage, ImageRepository>();
 builder.Services.AddScoped<IGroups, GroupsRepository>();
+builder.Services.AddScoped<IMessage, MessageRepository>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

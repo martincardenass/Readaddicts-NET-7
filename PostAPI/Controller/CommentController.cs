@@ -18,16 +18,12 @@ namespace PostAPI.Controller
 
         [HttpGet("{postId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<CommentView>))]
-        [ProducesResponseType(400)]
-        //[ProducesResponseType(404)]
+        [ProducesResponseType(204)]
         public async Task<IActionResult> GetCommentsByPostId(int postId)
         {
             var comments = await _commentService.GetCommentsByPostId(postId);
 
             if (comments.Count == 0) return NoContent();
-
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(comments);
         }
@@ -35,15 +31,11 @@ namespace PostAPI.Controller
         [HttpGet("id/{commentId}")]
         [ProducesResponseType(200, Type = typeof(Comment))]
         [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
         public async Task<IActionResult> GetCommendById(int commentId)
         {
             var comment = await _commentService.GetCommentViewById(commentId);
 
             if (comment == null) return NotFound();
-
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(comment);
         }
@@ -127,7 +119,6 @@ namespace PostAPI.Controller
         [HttpDelete("delete/{commentId}")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(404)]
-        [ProducesResponseType(400)]
         [ProducesResponseType(500)]
         [ProducesResponseType(200)]
         public async Task<IActionResult> DeleteComment(int commentId)
@@ -145,9 +136,6 @@ namespace PostAPI.Controller
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
             }
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok("Comment deleted");
         }

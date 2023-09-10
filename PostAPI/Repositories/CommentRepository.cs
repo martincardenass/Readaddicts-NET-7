@@ -17,47 +17,36 @@ namespace PostAPI.Repositories
 
         public IQueryable<CommentView> CommentJoinQuery()
         {
-            var comments = _context.Comments.GroupJoin( // * This join can also be done with a view
+            // * Joins comments with users and replies to display profile pictures and names of users and replies count
+            var comments = _context.Comments
+                .GroupJoin(
                 _context.Users,
                 comment => comment.User_Id,
                 user => user.User_Id,
                 (comment, users) => new { comment, users })
-                .SelectMany(
-                x => x.users.DefaultIfEmpty(),
-                (comment, user) => new CommentView
-                {
-                    Comment_Id = comment.comment.Comment_Id,
-                    User_Id = comment.comment.User_Id,
-                    Post_Id = comment.comment.Post_Id,
-                    Parent_Comment_Id = comment.comment.Parent_Comment_Id,
-                    Content = comment.comment.Content,
-                    Created = comment.comment.Created,
-                    Modified = comment.comment.Modified,
-                    Anonymous = comment.comment.Anonymous,
-                    Author = user != null ? user.Username : "Anonymous",
-                    Profile_Picture = user.Profile_Picture,
-                })
+                .SelectMany(x => x.users.DefaultIfEmpty(),
+                (joinResult, user) => new { joinResult.comment, user })
                 .GroupJoin(
                 _context.Comments,
-                c => c.Comment_Id,
+                comment => comment.comment.Comment_Id,
                 reply => reply.Parent_Comment_Id,
-                (c, replies) => new
+                (comment, replies) => new
                 {
-                    CommentView = c,
+                    comment,
                     Replies = replies.Count()
                 })
                 .Select(result => new CommentView
                 {
-                    Comment_Id = result.CommentView.Comment_Id,
-                    User_Id = result.CommentView.User_Id,
-                    Post_Id = result.CommentView.Post_Id,
-                    Parent_Comment_Id = result.CommentView.Parent_Comment_Id,
-                    Content = result.CommentView.Content,
-                    Created = result.CommentView.Created,
-                    Modified = result.CommentView.Modified,
-                    Anonymous = result.CommentView.Anonymous,
-                    Author = result != null ? result.CommentView.Author : "Anonymous",
-                    Profile_Picture = result.CommentView.Profile_Picture,
+                    Comment_Id = result.comment.comment.Comment_Id,
+                    User_Id = result.comment.comment.User_Id,
+                    Post_Id = result.comment.comment.Post_Id,
+                    Parent_Comment_Id = result.comment.comment.Parent_Comment_Id,
+                    Content = result.comment.comment.Content,
+                    Created = result.comment.comment.Created,
+                    Modified = result.comment.comment.Modified,
+                    Anonymous = result.comment.comment.Anonymous,
+                    Author = result != null ? result.comment.user.Username : "Anonymous",
+                    Profile_Picture = result.comment.user.Profile_Picture,
                     Replies = result.Replies,
                 });
 
@@ -71,7 +60,7 @@ namespace PostAPI.Repositories
 
         public async Task<int> CreateComment(int postId, int parentCommentId, Comment comment)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var newComment = new Comment()
             {
@@ -94,7 +83,7 @@ namespace PostAPI.Repositories
             var commentToDelete = await _context.Comments.FindAsync(comment.Comment_Id);
             if (commentToDelete == null) return false;
 
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             if (id == comment.User_Id && await _tokenService.IsUserAuthorized())
             {
@@ -186,9 +175,9 @@ namespace PostAPI.Repositories
                 .Take(pageSize)
                 .ToListAsync();
                 
-
             var additionalComments = new List<CommentView>();
 
+            // * Retrieve child comments recursively
             foreach (var comment in comments)
             {
                 var childComments = await RecursiveComments(comment, comments);
@@ -200,12 +189,15 @@ namespace PostAPI.Repositories
 
         public async Task<List<CommentView>> GetCommentViewById(int commentId)
         {
+            // * Saving into memory comment and same post comments
             var comment = await CommentJoinQuery()
                 .FirstOrDefaultAsync(i => i.Comment_Id == commentId);
 
             if (comment == null) return null;
 
-            var allComments = await CommentJoinQuery().ToListAsync();
+            var samePostComments = await CommentJoinQuery()
+                .Where(childs => childs.Post_Id == comment.Post_Id)
+                .ToListAsync();
 
             var childComments = new List<CommentView>();
 
@@ -223,13 +215,13 @@ namespace PostAPI.Repositories
                 Profile_Picture = comment.Profile_Picture
             };
 
-            return await RecursiveComments(comment, allComments);
+            return await RecursiveComments(comment, samePostComments);
         }
 
 
         public async Task<bool> UpdateComment(int commentId, Comment comment)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var commentToUpdate = await _context.Comments.FindAsync(commentId);
             if (commentToUpdate == null) return false;
@@ -258,36 +250,22 @@ namespace PostAPI.Repositories
                 .Where(x => x.Comment_Id == parentComment.Comment_Id)
                 .GroupJoin(
                 _context.Comments,
-                c => c.Comment_Id,
-                reply => reply.Parent_Comment_Id,
-                (x, r) => new CommentView
+                comment => comment.Comment_Id,
+                replies => replies.Parent_Comment_Id,
+                (comment, replies) => new { comment, replies }) 
+                .Select(result => new CommentView
                 {
-                    Comment_Id = x.Comment_Id,
-                    User_Id = x.User_Id,
-                    Post_Id = x.Post_Id,
-                    Parent_Comment_Id = x.Parent_Comment_Id,
-                    Content = x.Content,
-                    Created = x.Created,
-                    Modified = x.Modified,
-                    Anonymous = x.Anonymous,
-                    Author = x.Author,
-                    Profile_Picture = x.Profile_Picture,
-                    Replies = r.Count()
-                }
-                )
-                .Select(x => new CommentView
-                {
-                    Comment_Id = x.Comment_Id,
-                    User_Id = x.User_Id,
-                    Post_Id = x.Post_Id,
-                    Parent_Comment_Id = x.Parent_Comment_Id,
-                    Content = x.Content,
-                    Created = x.Created,
-                    Modified = x.Modified,
-                    Anonymous = x.Anonymous,
-                    Author = x.Author,
-                    Profile_Picture = x.Profile_Picture,
-                    Replies = x.Replies,
+                    Comment_Id = result.comment.Comment_Id,
+                    User_Id = result.comment.User_Id,
+                    Post_Id = result.comment.Post_Id,
+                    Parent_Comment_Id = result.comment.Parent_Comment_Id,
+                    Content = result.comment.Content,
+                    Created = result.comment.Created,
+                    Modified = result.comment.Modified,
+                    Anonymous = result.comment.Anonymous,
+                    Author = result.comment.Author,
+                    Profile_Picture = result.comment.Profile_Picture,
+                    Replies = result.replies.Count(),
                     ChildComments = replies
                 })
                 .ToList();

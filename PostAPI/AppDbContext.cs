@@ -15,6 +15,7 @@ namespace PostAPI
         public DbSet<Image> Images { get; set; }
         public DbSet<Group> Groups { get; set; }
         public DbSet<GroupsRelations> GroupsRelations { get; set; }
+        public DbSet<Message> Messages { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
         }

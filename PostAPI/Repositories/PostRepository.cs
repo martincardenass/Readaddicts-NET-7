@@ -1,6 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
-using PostAPI.Dto;
 using PostAPI.Interfaces;
 using PostAPI.Models;
 
@@ -29,7 +27,7 @@ namespace PostAPI.Repositories
 
         public async Task<int> CreatePost(List<IFormFile> files, Post post, int? groupId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var(id, _, _) = await _tokenService.DecodeHS512Token();
 
             // * Check if the group exists
             var findGroup = await _context.Groups.FindAsync(groupId);// * Return 0 will cause 500 server error
@@ -79,7 +77,7 @@ namespace PostAPI.Repositories
         public async Task<bool> DeletePost(Post post)
         {
             var postToDelete = await _context.Posts.FindAsync(post.Post_Id);
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             if (postToDelete.User_Id == id && await _tokenService.IsUserAuthorized())
             {
@@ -119,7 +117,7 @@ namespace PostAPI.Repositories
 
         public async Task<bool> UpdatePost(List<IFormFile> files, int postId, Post post)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
             var existingPost = await _context.Posts.FindAsync(postId);
 
             if (existingPost.User_Id == id && await _tokenService.IsUserAuthorized())
@@ -250,7 +248,7 @@ namespace PostAPI.Repositories
         {
             string? imageUrl = await _imageService.UploadImage(file);
 
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var newImage = new Image
             {
@@ -278,7 +276,7 @@ namespace PostAPI.Repositories
         public async Task<bool> CheckIfUserIsAGroupMember(int groupId)
         {
             // * Extract userId from the auth headers (for the logged user)
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
             // * Create a list of all the relations table of the desired group. This will throw all of the members IDs that belong to the desired group
             var groupRelationships = await _context.GroupsRelations.Where(g => g.Group_Id == groupId).ToListAsync();
             // * Then we check if at least any of those user IDs match the userId that was extracted from the token, if they do it mens the user its a member of the desired group

@@ -20,7 +20,7 @@ namespace PostAPI.Repositories
             _options = options;
         }
 
-        public Task<(int id, string role)> DecodeHS512Token()
+        public Task<(int id, string role, string username)> DecodeHS512Token()
         {
             string token = _http.HttpContext.Request.Headers.Authorization.ToString()
                 .Replace("Bearer", "").Trim();
@@ -30,17 +30,19 @@ namespace PostAPI.Repositories
             JwtSecurityTokenHandler tokenHandler = new();
             var jwtToken = tokenHandler.ReadJwtToken(token);
 
-            string? idString = jwtToken.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+            string? idString = jwtToken.Claims.FirstOrDefault(i => i.Type == "nameid")?.Value;
             _ = int.TryParse(idString, out int id);
 
             string? role = jwtToken.Claims.FirstOrDefault(r => r.Type == "role")?.Value;
 
-            return Task.FromResult((id, role));
+            string? username = jwtToken.Claims.FirstOrDefault(u => u.Type == "unique_name")?.Value;
+
+            return Task.FromResult((id, role, username));
         }
 
         public async Task<bool> IsUserAuthorized()
         {
-            var (id, role) = await DecodeHS512Token();
+            var (id, role, _) = await DecodeHS512Token();
 
             if (id != 0 || role == "Admin") return true;
             else return false;

@@ -24,7 +24,7 @@ namespace PostAPI.Repositories
         {
             var group = await _context.Groups.FindAsync(groupId);
 
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
             var idFromGroup = group.Group_Owner; // * Group Owner Id
 
             return id == idFromGroup;
@@ -32,7 +32,7 @@ namespace PostAPI.Repositories
 
         public async Task<Group> CreateGroup(Group group, IFormFile file)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             string? groupPictureUrl = await _imageService.UploadProfilePicture(file);
 
@@ -108,7 +108,7 @@ namespace PostAPI.Repositories
 
         public async Task<List<PostView>?> GetPostsByGroupId(int groupId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var group = await GetGroupById(groupId);
 
@@ -177,7 +177,7 @@ namespace PostAPI.Repositories
 
         public async Task<bool> JoinGroup(int groupId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             var group = await GetGroupById(groupId);
 
@@ -211,7 +211,7 @@ namespace PostAPI.Repositories
 
         public async Task<bool> LeaveGroup(int groupId)
         {
-            var (id, _) = await _tokenService.DecodeHS512Token();
+            var (id, _, _) = await _tokenService.DecodeHS512Token();
 
             if (await _tokenService.IsUserAuthorized())
             {

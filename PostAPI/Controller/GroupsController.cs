@@ -19,20 +19,15 @@ namespace PostAPI.Controller
 
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(IEnumerable<GroupView>))]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetGroups()
         {
             var groups = await _groupService.GetGroups();
-
-            if (!ModelState.IsValid)
-                return BadRequest();
 
             return Ok(groups);
         }
 
         [HttpGet("{groupId}")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<GroupView>))]
-        [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetGroupById(int groupId)
         {
@@ -40,16 +35,12 @@ namespace PostAPI.Controller
 
             if (group == null) return NotFound();
 
-            if (!ModelState.IsValid)
-                return BadRequest();
-
             return Ok(group);
         }
 
         [HttpGet("Posts/{groupId}")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
-        [ProducesResponseType(400)]
         public async Task<IActionResult> GetPostsByGroupId(int groupId)
         {
             var posts = await _groupService.GetPostsByGroupId(groupId);
@@ -171,7 +162,6 @@ namespace PostAPI.Controller
         [HttpDelete("Delete/{groupId}")]
         [ProducesResponseType(200)]
         [ProducesResponseType(404)]
-        [ProducesResponseType(400)]
         [ProducesResponseType(500)]
         public async Task<IActionResult> DeleteGroup(int groupId)
         {
@@ -186,9 +176,6 @@ namespace PostAPI.Controller
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
             }
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             return Ok(new { Ok = "Group deleted success" });
         }
