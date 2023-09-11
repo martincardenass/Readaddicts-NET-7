@@ -16,8 +16,9 @@ namespace PostAPI.Repositories
             _tokenService = tokenService;
         }
 
-        public async Task<List<MessageView>> GetConversation(string receiver, string sender)
+        public async Task<List<MessageView>> GetConversation(int page, int pageSize, string receiver, string sender)
         {
+            int msgsToSkip = (page - 1) * pageSize;
             // * Extract the IDs using the usernames
             var receiverId = await MessageJoinQuery()
                 .Where(u => u.Receiver_Username == receiver)
@@ -31,6 +32,10 @@ namespace PostAPI.Repositories
 
             return await MessageJoinQuery()
                 .Where(r => (r.Sender == senderId && r.Receiver == receiverId) || (r.Sender == receiverId && r.Receiver == senderId))
+                .OrderByDescending(m => m.Timestamp)
+                .Skip(msgsToSkip)
+                .Take(pageSize)
+                .OrderBy(m => m.Timestamp)
                 .ToListAsync();
         }
 
@@ -143,7 +148,7 @@ namespace PostAPI.Repositories
                 });
         }
 
-        public async Task<bool> SendMessage(string receiver, Message message)
+        public async Task<MessageView> SendMessage(string receiver, Message message)
         {
             var (id, _, _) = await _tokenService.DecodeHS512Token();
 
@@ -167,10 +172,33 @@ namespace PostAPI.Repositories
 
                 _context.Add(newMessage);
 
-                return await _context.SaveChangesAsync() > 0;
+                // * Get the user of whoever its sending a message
+                var userLogged = await _context.Users.Where(u => u.User_Id == id).FirstOrDefaultAsync();
+
+                if(userLogged != null)
+                {
+                    userLogged.Last_Login = DateTime.UtcNow; // * Update their last seen
+                    _ = await _context.SaveChangesAsync();
+                }
+
+                _ = await _context.SaveChangesAsync();
+
+                var user = await _context.Users
+                    .FindAsync(id);
+
+                var messageToReturn = new MessageView()
+                {
+                    Sender_User_Id = id,
+                    Sender_Username = user.Username,
+                    Sender_Profile_Picture = user.Profile_Picture,
+                    Message_Id = newMessage.Message_Id,
+                    Content = newMessage.Content,
+                    Timestamp = newMessage.Timestamp
+                };
+                return messageToReturn; // * Hardcoding true to avoid weird error
             }
 
-            else return false;
+            else return null;
         }
     }
 }

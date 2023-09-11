@@ -40,9 +40,9 @@ namespace PostAPI.Controller
         [HttpGet("messages/conversation")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<MessageView>))]
-        public async Task<IActionResult> GetConversation(string receiver, string sender)
+        public async Task<IActionResult> GetConversation(int page, int pageSize, string receiver, string sender)
         {
-            var messages = await _messageService.GetConversation(receiver, sender);
+            var messages = await _messageService.GetConversation(page, pageSize, receiver, sender);
 
             return Ok(messages);
         }
@@ -66,7 +66,7 @@ namespace PostAPI.Controller
         {
             var newMessage = await _messageService.SendMessage(receiver, message);
 
-            if(!newMessage)
+            if(newMessage == null)
             {
                 ModelState.AddModelError("", "Something went wrong");
                 return StatusCode(500, ModelState);
@@ -75,7 +75,7 @@ namespace PostAPI.Controller
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            return NoContent();
+            return Ok(newMessage);
         }
     }
 }
