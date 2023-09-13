@@ -47,7 +47,7 @@ namespace PostAPI.Controller
             return Ok(messages);
         }
 
-        [HttpGet("messages/users")]
+        [HttpGet("users/")]
         [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<UserLimitedDto>))]
         public async Task<IActionResult> GetUsersThatHaveMessagedMe()

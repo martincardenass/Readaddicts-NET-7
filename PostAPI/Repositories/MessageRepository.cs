@@ -30,13 +30,15 @@ namespace PostAPI.Repositories
                 .Select(u => u.Sender_User_Id)
                 .FirstOrDefaultAsync();
 
-            return await MessageJoinQuery()
+            var messages = await MessageJoinQuery()
                 .Where(r => (r.Sender == senderId && r.Receiver == receiverId) || (r.Sender == receiverId && r.Receiver == senderId))
                 .OrderByDescending(m => m.Timestamp)
                 .Skip(msgsToSkip)
                 .Take(pageSize)
                 .OrderBy(m => m.Timestamp)
                 .ToListAsync();
+
+            return messages;
         }
 
         public async Task<MessageView?> GetMessageById(int messageId)
@@ -75,23 +77,42 @@ namespace PostAPI.Repositories
 
         public async Task<List<UserLimitedDto>> GetUsersThatHaveMessagedMe()
         {
-            var (_, _, username) = await _tokenService.DecodeHS512Token();
-            // * Select and return the properties that userlimited dto has extracted from the MessageView
+            // * Id receiver, so the user logged in.
+            var (id, _, username) = await _tokenService.DecodeHS512Token();
 
-            var users = await MessageJoinQuery()
-                .Where(u => u.Receiver_Username == username)
+            // * Get the senders ID
+            var sender = await _context.Messages
+                .Where(user => user.Receiver == id)
+                .Where(user => user.Sender != id) // * Filter out your ID from the response
+                .GroupBy(group => group.Sender)
+                .Select(group => group.Key) // * Unique sender key
                 .ToListAsync();
 
-            return users
-                .GroupBy(u => u.Sender_User_Id)
-                .Select(g => g.First())
+            var users = _context.Users
+                .Where(user => sender.Contains(user.User_Id))
+                .Select(u => new
+                {
+                    u.User_Id,
+                    u.Username,
+                    u.Profile_Picture
+                })
+                .OrderByDescending(user => _context.Messages
+                    .Where(msg => msg.Sender == user.User_Id && msg.Receiver == id || msg.Sender == id && msg.Receiver == user.User_Id)
+                    .OrderByDescending(msg => msg.Timestamp)
+                    .Select(msg => msg.Timestamp)
+                    .FirstOrDefault())
+                .ToList();
+
+            var msgs = users
                 .Select(u => new UserLimitedDto
                 {
-                    User_Id =u.Sender_User_Id,
-                    Username = u.Sender_Username,
-                    Profile_Picture = u.Sender_Profile_Picture
+                    User_Id = u.User_Id,
+                    Username = u.Username,
+                    Profile_Picture = u.Profile_Picture
                 })
                 .ToList();
+
+            return msgs;
         }
 
         public async Task<bool> IsUserReceiver(int userId)

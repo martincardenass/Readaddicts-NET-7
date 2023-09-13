@@ -1,4 +1,6 @@
-﻿namespace PostAPI.Dto
+﻿using PostAPI.Models;
+
+namespace PostAPI.Dto
 {
     public class UserLimitedDto
     {
