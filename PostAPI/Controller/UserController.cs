@@ -13,44 +13,28 @@ namespace PostAPI.Controller
         private readonly IUser _userService;
         private readonly IPost _postService;
         private readonly IComment _commentService;
-        private readonly IToken _tokenService;
 
-        public UserController(IUser userService, IPost postService, IComment commentService, IToken tokenService)
+        public UserController(IUser userService, IPost postService, IComment commentService)
         {
             _userService = userService;
             _postService = postService;
             _commentService = commentService;
-            _tokenService = tokenService;
         }
 
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(IEnumerable<User>))]
         public async Task<IActionResult> GetUsers()
         {
-            var users = await _userService.GetUsers();
-            var usersDto = new List<User>();
+            var (users, readerTiers) = await _userService.ShowcaseUsers();
 
-            foreach(var user in users)
+            // * Return the tuple
+            var tuple = new Dictionary<string, object>
             {
-                var newUsers = new User
-                {
-                    User_Id = user.User_Id,
-                    Username = user.Username,
-                    First_Name = user.First_Name,
-                    Last_Name = user.Last_Name,
-                    Created = user.Created,
-                    Role = user.Role,
-                    Gender = user.Gender,
-                    Birthday = user.Birthday,
-                    Profile_Picture = user.Profile_Picture,
-                    Bio = user.Bio,
-                    Status = user.Status
-                };
+                { "Users", users },
+                { "Tiers", readerTiers }
+            };
 
-                usersDto.Add(newUsers);
-            }
-
-            return Ok(usersDto);
+            return Ok(tuple);
         }
 
         [HttpPost("Validator/UsernameExists/{username}")]
@@ -94,35 +78,37 @@ namespace PostAPI.Controller
             return Ok(user);
         }
 
-        [HttpGet("username/{username}")]
+        [HttpGet("username/name/{name}")]
+        [Authorize(Policy = "UserAllowed")]
         [ProducesResponseType(200, Type = typeof(User))]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(401)]
+        public async Task<IActionResult> GetUserByUsernameFull(string name)
+        {
+            // * Protected version
+            var user = await _userService.GetUserByUsername(name);
+            bool exists = await _userService.UserExists(name);
+
+            if (user == null) return Unauthorized();
+
+            if (!exists)
+                return NotFound();
+
+            return Ok(user);
+        }
+
+        [HttpGet("username/{username}")]
+        [ProducesResponseType(200, Type = typeof(UserView))]
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetUserByUsername(string username)
         {
-            var user = await _userService.GetUser(username);
+            var user = await _userService.GetUserView(username);
 
             bool exists = await _userService.UserExists(username);
 
-            if (!exists)
-                return NotFound($"The user {username} does not exist");
+            if (!exists) NotFound();
 
-            var userDto = new User
-            {
-                User_Id = user.User_Id,
-                Username = user.Username,
-                First_Name = user.First_Name,
-                Last_Name = user.Last_Name,
-                Created = user.Created,
-                Email = user.Email,
-                Role = user.Role,
-                Gender = user.Gender,
-                Profile_Picture = user.Profile_Picture,
-                Bio = user.Bio,
-                Status = user.Status,
-                Last_Login = user.Last_Login
-            };
-
-            return Ok(userDto);
+            return Ok(user);
         }
 
         [HttpGet("{username}/posts")]
@@ -153,6 +139,15 @@ namespace PostAPI.Controller
                 return NotFound($"User with username {username} does not exist");
 
             return Ok(comments);
+        }
+
+        [HttpGet("{username}/groups")]
+        [ProducesResponseType(200, Type = typeof(IEnumerable<Group>))] 
+        public async Task<IActionResult> GetUserGroups(string username)
+        {
+            var groups = await _userService.GetUserGroups(username);
+
+            return Ok(groups);
         }
 
         [HttpPost("signup")]

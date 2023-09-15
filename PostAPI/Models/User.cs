@@ -21,6 +21,7 @@ namespace PostAPI.Models
         public string? Bio { get; set; }
         public string? Status { get; set; }
         public DateTime? Last_Login { get; set; }
+        public int Tier_Id { get; set; }
     }
 
     public class UserValidator : AbstractValidator<User>

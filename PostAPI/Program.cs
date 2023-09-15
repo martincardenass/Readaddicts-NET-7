@@ -3,6 +3,7 @@ using dotenv.net;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using PostAPI;
 using PostAPI.Interfaces;
 using PostAPI.OptionsSetup;
@@ -36,6 +37,7 @@ builder.Services.AddScoped<IComment, CommentRepository>();
 builder.Services.AddScoped<IImage, ImageRepository>();
 builder.Services.AddScoped<IGroups, GroupsRepository>();
 builder.Services.AddScoped<IMessage, MessageRepository>();
+builder.Services.AddScoped<ITier, TierRepository>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

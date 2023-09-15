@@ -80,7 +80,7 @@ namespace PostAPI.Repositories
             // * Id receiver, so the user logged in.
             var (id, _, username) = await _tokenService.DecodeHS512Token();
 
-            // * Get the senders ID
+            // * List of sender who have messaged the loggedin user, exclusing ofc the loggedin user
             var sender = await _context.Messages
                 .Where(user => user.Receiver == id)
                 .Where(user => user.Sender != id) // * Filter out your ID from the response
@@ -96,6 +96,7 @@ namespace PostAPI.Repositories
                     u.Username,
                     u.Profile_Picture
                 })
+                // * Order based on the most recent message timestamp for each conversation
                 .OrderByDescending(user => _context.Messages
                     .Where(msg => msg.Sender == user.User_Id && msg.Receiver == id || msg.Sender == id && msg.Receiver == user.User_Id)
                     .OrderByDescending(msg => msg.Timestamp)
