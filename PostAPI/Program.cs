@@ -3,7 +3,6 @@ using dotenv.net;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using PostAPI;
 using PostAPI.Interfaces;
 using PostAPI.OptionsSetup;

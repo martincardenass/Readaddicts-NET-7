@@ -35,13 +35,14 @@ namespace PostAPI.Repositories
                 Last_Name = user.Last_Name,
                 Created = DateTime.Now,
                 Email = user.Email.ToLower(), // * Required
-                Role = user.Role.ToLower(), // * Required
+                Role = "user", // * Required
                 Password = hashedPw, // * Required
                 Gender = user.Gender,
                 Birthday = user.Birthday,
                 Profile_Picture = profilePictureUrl, // * And save the URL on the database
                 Status = user.Status,
                 Last_Login = user.Last_Login,
+                Tier_Id = user.Tier_Id
             };
 
             _context.Add(newUser);

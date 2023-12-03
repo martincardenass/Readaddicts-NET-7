@@ -48,7 +48,7 @@ namespace PostAPI.Models
                     return !exists;
                 }
                 ).WithMessage("This email is already registered");
-            RuleFor(x => x.Role).NotEmpty();
+            //RuleFor(x => x.Role).NotEmpty();
             RuleFor(x => x.Password).NotEmpty().MaximumLength(128);
             RuleFor(x => x.Gender).MaximumLength(20);
             RuleFor(x => x.Profile_Picture).MaximumLength(255);
