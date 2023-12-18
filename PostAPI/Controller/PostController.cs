@@ -18,6 +18,7 @@ namespace PostAPI.Controller
             _imageService = imageService;
         }
 
+        [Authorize(Policy = "UserAllowed")]
         [HttpGet("allposts")]
         [ProducesResponseType(200, Type = typeof(IEnumerable<PostView>))]
         public async Task<IActionResult> GetPosts(int page, int pageSize)

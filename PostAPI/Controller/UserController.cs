@@ -212,6 +212,14 @@ namespace PostAPI.Controller
                 return StatusCode(500, ModelState);
             }
 
+            HttpContext.Response.Cookies.Append("access_token", token, new CookieOptions
+            {
+                Expires = DateTime.Now.AddDays(14),
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
+
             return Ok(new { Token = token, User = userLimited });
         }
 
